@@ -3,9 +3,7 @@ name = "rl-playground"
 version = "0.1.0"
 description = "rl-playground"
 readme = "README.md"
-authors = [
-    { name = "David Apagyi", email = "apagyi.david@gmail.com" }
-]
+authors = [{ name = "David Apagyi", email = "apagyi.david@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "gymnasium>=1.1.1",
@@ -13,6 +11,15 @@ dependencies = [
     "numpy>=2.2.5",
     "tqdm>=4.67.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.scripts]
 rl-playground = "rl_playground:main"
@@ -31,7 +38,7 @@ select = [
     # flake8-2020
     "YTT",
     # flake8-bandit
-    "S",
+    # "S",
     # flake8-bugbear
     "B",
     # flake8-builtins
@@ -47,11 +54,12 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E", "W",
+    "E",
+    "W",
     # pyflakes
     "F",
     # pygrep-hooks
-    "PGH",
+    # "PGH",
     # pyupgrade
     "UP",
     # ruff
