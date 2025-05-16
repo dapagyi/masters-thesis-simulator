@@ -28,7 +28,7 @@ class Observation:
     current_time: int
     vehicle_position: Node
     remaining_route: list[Node]
-    new_customers: list[Node]
+    new_customers: list[Customer]
 
 
 @dataclass

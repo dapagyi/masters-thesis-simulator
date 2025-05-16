@@ -38,8 +38,6 @@ class TimeBudgetingEnv(gym.Env):
 
         # TODO: Define action and observation spaces
 
-        self.reset()
-
     def _travel_time(self, from_node: Node, to_node: Node) -> int:
         return ceil(from_node.distance_to(to_node) / self._vehicle_speed)
 
@@ -48,41 +46,46 @@ class TimeBudgetingEnv(gym.Env):
         return self._t_max - self._point_of_time - route_time
 
     def _get_obs(self) -> Observation:
-        vehicle_position = self._route[-1] if self._route else self._depot  # FIXME
         return Observation(
             current_time=self._point_of_time,
-            vehicle_position=vehicle_position,
-            remaining_route=self._route,
-            new_customers=[req.node for req in self._new_customers],
+            vehicle_position=self._route[0],
+            remaining_route=self._route[1:],  # Exclude current position
+            new_customers=self._new_customers_in_current_step,
         )
 
     def _get_info(self) -> Info:
+        # FIXME: Maybe this method should return a numpy array instead?
         return Info(
             point_of_time=self._point_of_time,
             free_time_budget=self._free_time_budget(),
         )
 
-    def reset(self, seed=None, options: ResetOptions | None = None):  # type: ignore
+    def reset(self, seed: int | None = None, options: ResetOptions | None = None) -> tuple[Observation, Info]:  # type: ignore
         super().reset(seed=seed)
 
         self._point_of_time: int = 0
-        self._route: list[Node] = []
+        self._route: list[Node] = [self._depot, self._depot]  # Start and end at depot
 
+        # We use allow_insert_at_beginning=False to ensure that the depot is always the first node in the route.
         if options:
             assert len(options.initial_customers) == self._number_of_initial_customers
             assert len(options.future_customers) == self._number_of_future_customers
 
-            self._insert_nodes_into_route([req.node for req in options.initial_customers])
+            self._insert_nodes_into_route(
+                [req.node for req in options.initial_customers], allow_insert_at_beginning=False
+            )
             self._future_customers = options.future_customers
         else:
             initial_customers: list[Customer] = self._generate_customers(self._number_of_initial_customers, t=0)
-            self._insert_nodes_into_route([req.node for req in initial_customers])
+            self._insert_nodes_into_route([req.node for req in initial_customers], allow_insert_at_beginning=False)
             self._future_customers = self._generate_customers(self._number_of_future_customers)
 
+        # Travel to the first customer, update route
         self._last_step_time = 0
+        self._route = self._route[1:]  # Remove depot from the route
         self._point_of_time = self._travel_time(self._depot, self._route[0]) if self._route else 0
-        self._new_customers = list(
-            filter(lambda req: self._last_step_time <= req.request_time < self._point_of_time, self._future_customers)
+        self._new_customers_in_current_step = list(
+            filter(lambda req: self._last_step_time < req.request_time <= self._point_of_time, self._future_customers)
         )
 
         observation = self._get_obs()
@@ -121,12 +124,12 @@ class TimeBudgetingEnv(gym.Env):
             key=lambda x: x.request_time,
         )
 
-    def _insert_nodes_into_route(self, nodes: list[Node]) -> None:
+    def _insert_nodes_into_route(self, nodes: list[Node], allow_insert_at_beginning: bool = True) -> None:
         # Insert accepted requests into the current route using cheapest insertion heuristic
         for node in nodes:
             best_position = None
             min_increase = float("inf")
-            for i in range(len(self._route) + 1):
+            for i in range(0 if allow_insert_at_beginning else 1, len(self._route)):  # The last position is the depot.
                 new_route = self._route[:i] + [node] + self._route[i:]
                 total_time = sum(self._travel_time(u, v) for u, v in pairwise(new_route))
                 if total_time < min_increase:

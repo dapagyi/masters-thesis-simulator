@@ -46,7 +46,7 @@ def reset_options():
         Customer(Node(2, 2)),
     ]
     future_customers = [
-        Customer(Node(3, 3), 3),
+        Customer(Node(3, 3), 2),
         Customer(Node(4, 4), 4),
         Customer(Node(5, 5), 5),
     ]
@@ -59,20 +59,22 @@ def reset_options():
 @pytest.fixture
 def env(reset_options: ResetOptions):
     _env = TimeBudgetingEnv(
-        t_max=10,
+        t_max=20,
         number_of_initial_requests=len(reset_options.initial_customers),
         number_of_future_requests=len(reset_options.future_customers),
         grid_size=10,
         depot=Node(0, 0),
     )
-    _env.reset(options=reset_options)
     return _env
 
 
-def test_env_init(env: TimeBudgetingEnv):
-    print(env._route)
-    print(env._new_customers)
-    print(env._future_customers)
-    print(env._get_info())
-    print(env._get_obs())
-    # assert False
+def test_env_init(env: TimeBudgetingEnv, reset_options: ResetOptions):
+    obs, info = env.reset(options=reset_options)
+    # Expected route:
+    # (0, 0) -> (2, 2) -> (1, 2) -> (1, 1) -> (0, 0)
+    # Travel times: 3 + 1 + 1 + 2 = 7
+    # Remaining time: 20 - 7 = 13
+    assert obs.vehicle_position == Node(2, 2)
+    assert obs.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
+    assert obs.current_time == info.point_of_time == 3
+    assert info.free_time_budget == 13  # 20 - 3 - ()
