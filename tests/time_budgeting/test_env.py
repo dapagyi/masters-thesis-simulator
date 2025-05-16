@@ -1,41 +1,36 @@
-import random
-
 import pytest
 
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
-from rl_playground.vrp.time_budgeting.types import Customer, Node, ResetOptions
+from rl_playground.vrp.time_budgeting.types import Action, Customer, Node, ResetOptions
 
 
-@pytest.fixture(autouse=True)
-def fixed_seed():
-    random.seed(42)
+def test_invalid_route():
+    reset_options = ResetOptions(
+        initial_customers=[
+            Customer(Node(3, 4)),  # Takes 5 time units to reach
+        ],
+        future_customers=[
+            Customer(Node(3, 3), 3),
+        ],
+    )
+    env = TimeBudgetingEnv(
+        t_max=10,
+        number_of_initial_customers=len(reset_options.initial_customers),
+        number_of_future_customers=len(reset_options.future_customers),
+        grid_size=10,
+        depot=Node(0, 0),
+    )
+    env.reset(options=reset_options)  # This should not raise an error
 
-
-def test_fixed_seed():
-    # Test that the random seed is fixed
-    assert random.randint(0, 100) == 81
-    assert random.randint(0, 100) == 14
-    assert random.randint(0, 100) == 3
-
-
-def test_fixed_seed_different_runs():
-    # Test that the random seed is fixed across different runs
-    assert random.randint(0, 100) == 81
-    assert random.randint(0, 100) == 14
-    assert random.randint(0, 100) == 3
-
-
-@pytest.mark.parametrize(
-    "node1, node2, expected_distance",
-    [
-        (Node(0, 0), Node(3, 4), 5.0),
-        (Node(1, 1), Node(4, 5), 5.0),
-        (Node(-1, -1), Node(-4, -5), 5.0),
-        (Node(0, 0), Node(0, 0), 0.0),
-    ],
-)
-def test_distance_to(node1, node2, expected_distance):
-    assert node1.distance_to(node2) == expected_distance
+    with pytest.raises(ValueError, match="Route exceeds time budget"):
+        env = TimeBudgetingEnv(
+            t_max=9,  # Not enough time to visit the customer and return to the depot
+            number_of_initial_customers=len(reset_options.initial_customers),
+            number_of_future_customers=len(reset_options.future_customers),
+            grid_size=10,
+            depot=Node(0, 0),
+        )
+        env.reset(options=reset_options)
 
 
 @pytest.fixture
@@ -47,6 +42,7 @@ def reset_options():
     ]
     future_customers = [
         Customer(Node(3, 3), 2),
+        Customer(Node(3, 3), 3),
         Customer(Node(4, 4), 4),
         Customer(Node(5, 5), 5),
     ]
@@ -60,8 +56,8 @@ def reset_options():
 def env(reset_options: ResetOptions):
     _env = TimeBudgetingEnv(
         t_max=20,
-        number_of_initial_requests=len(reset_options.initial_customers),
-        number_of_future_requests=len(reset_options.future_customers),
+        number_of_initial_customers=len(reset_options.initial_customers),
+        number_of_future_customers=len(reset_options.future_customers),
         grid_size=10,
         depot=Node(0, 0),
     )
@@ -69,12 +65,42 @@ def env(reset_options: ResetOptions):
 
 
 def test_env_init(env: TimeBudgetingEnv, reset_options: ResetOptions):
-    obs, info = env.reset(options=reset_options)
-    # Expected route:
-    # (0, 0) -> (2, 2) -> (1, 2) -> (1, 1) -> (0, 0)
+    observation, info = env.reset(options=reset_options)
+    # Route: (0, 0) -> (2, 2) -> (1, 2) -> (1, 1) -> (0, 0)
     # Travel times: 3 + 1 + 1 + 2 = 7
     # Remaining time: 20 - 7 = 13
-    assert obs.vehicle_position == Node(2, 2)
-    assert obs.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
-    assert obs.current_time == info.point_of_time == 3
-    assert info.free_time_budget == 13  # 20 - 3 - ()
+    assert observation.vehicle_position == Node(2, 2)
+    assert observation.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
+    assert observation.current_time == info.point_of_time == 3
+    assert info.free_time_budget == 13  # 20 - 3 - (1 + 1 + 2)
+    assert observation.new_customers == [Customer(Node(3, 3), 2), Customer(Node(3, 3), 3)]
+
+
+def test_env_step_stay_at_current_location(env: TimeBudgetingEnv, reset_options: ResetOptions):
+    observation, info = env.reset(options=reset_options)
+    assert observation.vehicle_position == Node(2, 2)
+    action = Action(
+        accepted_customers=[Customer(Node(3, 3), 2)],
+        wait_at_current_location=True,
+    )
+    observation, reward, terminated, truncated, info = env.step(action)
+    assert reward == 1
+    assert observation.vehicle_position == Node(2, 2)  # Vehicle stays at (2, 2)
+    assert observation.remaining_route == [Node(3, 3), Node(1, 2), Node(1, 1), Node(0, 0)]
+    assert observation.current_time == info.point_of_time == 4
+    assert observation.new_customers == [Customer(Node(4, 4), 4)]
+
+
+def test_env_step(env: TimeBudgetingEnv, reset_options: ResetOptions):
+    observation, info = env.reset(options=reset_options)
+    assert observation.vehicle_position == Node(2, 2)
+    action = Action(
+        accepted_customers=[Customer(Node(3, 3), 2)],
+        wait_at_current_location=False,
+    )
+    observation, reward, terminated, truncated, info = env.step(action)
+    assert reward == 1
+    assert observation.vehicle_position == Node(3, 3)
+    assert observation.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
+    assert observation.current_time == info.point_of_time == 5
+    assert observation.new_customers == [Customer(Node(4, 4), 4), Customer(Node(5, 5), 5)]

@@ -32,6 +32,16 @@ class Observation:
 
 
 @dataclass
+class Action:
+    accepted_customers: list[Customer]
+    # next_customer: Customer | None = None  # None if the vehicle should stay where it is
+    #
+    # The paper describes the action as a tuple of accepted customers and the next customer to visit,
+    # but since we maintain the route, it is more natural to consider if the vehicle should stay at the current location or not.
+    wait_at_current_location: bool
+
+
+@dataclass
 class ResetOptions:
     initial_customers: list[Customer]
     future_customers: list[Customer]
