@@ -104,3 +104,19 @@ def test_env_step(env: TimeBudgetingEnv, reset_options: ResetOptions):
     assert observation.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
     assert observation.current_time == info.point_of_time == 5
     assert observation.new_customers == [Customer(Node(4, 4), 4), Customer(Node(5, 5), 5)]
+
+
+def test_env_never_accepts_customers(env: TimeBudgetingEnv, reset_options: ResetOptions):
+    observation, info = env.reset(options=reset_options)
+    action = Action(
+        accepted_customers=[],
+        wait_at_current_location=False,
+    )
+    done = False
+    while not done:
+        observation, reward, terminated, truncated, info = env.step(action)
+        done = terminated and not truncated
+    assert observation.vehicle_position == Node(0, 0)
+    assert observation.current_time == 7  # Travel times: 3 + 1 + 1 + 2 = 7
+    assert observation.remaining_route == []
+    assert info.point_of_time + info.free_time_budget == env._t_max
