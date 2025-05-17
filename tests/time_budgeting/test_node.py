@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from rl_playground.vrp.time_budgeting.types import Node
+from rl_playground.vrp.time_budgeting.custom_types import Node
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 import pytest
 
+from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Node, ResetOptions
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
-from rl_playground.vrp.time_budgeting.types import Action, Customer, Node, ResetOptions
 
 
 def test_invalid_route():

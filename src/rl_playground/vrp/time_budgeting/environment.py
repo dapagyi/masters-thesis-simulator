@@ -13,7 +13,7 @@ from math import ceil
 import gymnasium as gym
 import numpy as np
 
-from rl_playground.vrp.time_budgeting.types import Action, Customer, Info, Node, Observation, ResetOptions
+from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
 
 
 class TimeBudgetingEnv(gym.Env):
