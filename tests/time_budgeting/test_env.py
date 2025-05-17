@@ -120,3 +120,49 @@ def test_env_never_accepts_customers(env: TimeBudgetingEnv, reset_options: Reset
     assert observation.current_time == 7  # Travel times: 3 + 1 + 1 + 2 = 7
     assert observation.remaining_route == []
     assert info.point_of_time + info.free_time_budget == env._t_max
+
+
+@pytest.mark.parametrize(
+    "action, expected_reward",
+    [
+        (Action(accepted_customers=[], wait_at_current_location=True), 0),
+        (Action(accepted_customers=[], wait_at_current_location=False), 0),
+        (Action(accepted_customers=[Customer(Node(3, 3), 2)], wait_at_current_location=True), 1),
+        (Action(accepted_customers=[Customer(Node(3, 3), 2)], wait_at_current_location=False), 1),
+    ],
+)
+def test_env_action(env: TimeBudgetingEnv, reset_options: ResetOptions, action: Action, expected_reward: int):
+    observation, info = env.reset(options=reset_options)
+    assert observation.vehicle_position == Node(2, 2)
+    observation, reward, terminated, truncated, info = env.step(action)
+    assert reward == expected_reward
+    assert observation.vehicle_position == Node(2, 2) if action.wait_at_current_location else Node(3, 3)
+
+
+@pytest.mark.parametrize(
+    "t_max, grid_size, initial_customers, future_customers",
+    [
+        (1000, 10, 5, 5),
+        (2000, 20, 10, 10),
+        (3000, 30, 15, 15),
+        (4000, 40, 20, 20),
+    ],
+)
+def test_large_env(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
+    env = TimeBudgetingEnv(
+        t_max=t_max,
+        number_of_initial_customers=initial_customers,
+        number_of_future_customers=future_customers,
+        grid_size=grid_size,
+    )
+    observation, info = env.reset()
+    action = Action(
+        accepted_customers=[],
+        wait_at_current_location=False,
+    )
+    done = False
+    while not done:
+        observation, reward, terminated, truncated, info = env.step(action)
+        done = terminated and not truncated
+    assert observation.vehicle_position == Node(grid_size // 2, grid_size // 2)
+    assert observation.current_time <= t_max
