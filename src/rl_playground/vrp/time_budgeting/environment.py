@@ -120,6 +120,9 @@ class TimeBudgetingEnv(gym.Env):
             self._insert_nodes_into_route(accepted_customers_nodes)
             self._point_of_time += self._travel_time(current_position, self._route[0])
 
+        if self._point_of_time > self._t_max:
+            raise ValueError("Time budget exceeded")
+
         observation = self._get_obs()
         reward = len(action.accepted_customers)  # Immediate reward is the number of newly accepted customers
         terminated = len(self._route) == 1 and self._route[0] == self._depot and not self._future_customers

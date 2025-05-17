@@ -2,6 +2,7 @@ import pytest
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Node, ResetOptions
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
+from rl_playground.vrp.time_budgeting.policies import reject_policy
 
 
 def test_invalid_route():
@@ -142,13 +143,13 @@ def test_env_action(env: TimeBudgetingEnv, reset_options: ResetOptions, action: 
 @pytest.mark.parametrize(
     "t_max, grid_size, initial_customers, future_customers",
     [
-        (1000, 10, 5, 5),
-        (2000, 20, 10, 10),
-        (3000, 30, 15, 15),
-        (4000, 40, 20, 20),
-    ],
+        (100, 10, 5, 5),
+        (200, 20, 10, 10),
+        (300, 30, 15, 15),
+        (400, 40, 20, 20),
+    ],  # The t_max values are not so generous, but with fixed seed, the customers are generated in a way that they are reachable
 )
-def test_large_env(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
+def test_env_terminaton_with_reject_policy(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
     env = TimeBudgetingEnv(
         t_max=t_max,
         number_of_initial_customers=initial_customers,
@@ -156,13 +157,13 @@ def test_large_env(t_max: int, grid_size: int, initial_customers: int, future_cu
         grid_size=grid_size,
     )
     observation, info = env.reset()
-    action = Action(
-        accepted_customers=[],
-        wait_at_current_location=False,
-    )
+
     done = False
     while not done:
+        action = reject_policy(observation, info)
         observation, reward, terminated, truncated, info = env.step(action)
         done = terminated and not truncated
-    assert observation.vehicle_position == Node(grid_size // 2, grid_size // 2)
+    assert observation.vehicle_position == env._depot
+    assert observation.remaining_route == []
     assert observation.current_time <= t_max
+    print(f"Final time: {observation.current_time}, Free time budget: {info.free_time_budget}")

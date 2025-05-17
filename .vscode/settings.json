@@ -1,6 +1,9 @@
 {
     "python.testing.pytestArgs": [
-        "tests"
+        "tests",
+        "--color=yes",
+        // Uncomment the following line to show test output in the terminal
+        // "-s",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
