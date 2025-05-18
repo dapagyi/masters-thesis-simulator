@@ -123,7 +123,9 @@ class TimeBudgetingEnv(gym.Env):
                 self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=False)
 
             self._point_of_time += 1
-            if self._point_of_time > self._t_max:
+            if self._free_time_budget() < 0:
+                # If no customers are accepted, we have to check if we are still within the time budget
+                # (Otherwise it is checked in routing.)
                 raise ValueError("Maximum time exceeded")
         else:
             current_position, self._route = self._route[0], self._route[1:]
