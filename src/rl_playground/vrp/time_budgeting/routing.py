@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from itertools import pairwise
-from typing import Callable
 
 from rl_playground.vrp.time_budgeting.custom_types import Node
 
