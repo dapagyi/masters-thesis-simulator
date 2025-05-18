@@ -57,11 +57,7 @@ class TimeBudgetingEnv(gym.Env):
         )
 
     def _get_obs(self) -> Observation:
-        # FIXME: Maybe this method should return a numpy array instead?
-        return Observation(
-            point_of_time=self._point_of_time,
-            free_time_budget=self._free_time_budget(),
-        )
+        return (self._point_of_time, self._free_time_budget())
 
     def _get_info(self) -> Info:
         # Take only the customers that are new in this step.

@@ -74,8 +74,9 @@ def test_env_init(env: TimeBudgetingEnv, reset_options: ResetOptions):
     # Remaining time: 20 - 7 = 13
     assert info.vehicle_position == Node(2, 2)
     assert info.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
-    assert observation.point_of_time == info.current_time == 3
-    assert observation.free_time_budget == 13  # 20 - 3 - (1 + 1 + 2)
+    assert info.current_time == 3
+    _, free_time_budget = observation
+    assert free_time_budget == 13  # 20 - 3 - (1 + 1 + 2)
     assert info.new_customers == [Customer(Node(3, 3), 2), Customer(Node(3, 3), 3)]
 
 
@@ -90,7 +91,7 @@ def test_env_step_stay_at_current_location(env: TimeBudgetingEnv, reset_options:
     assert reward == 1
     assert info.vehicle_position == Node(2, 2)  # Vehicle stays at (2, 2)
     assert info.remaining_route == [Node(3, 3), Node(1, 2), Node(1, 1), Node(0, 0)]
-    assert observation.point_of_time == info.current_time == 4
+    assert info.current_time == 4
     assert info.new_customers == [Customer(Node(4, 4), 4)]
 
 
@@ -105,7 +106,7 @@ def test_env_step(env: TimeBudgetingEnv, reset_options: ResetOptions):
     assert reward == 1
     assert info.vehicle_position == Node(3, 3)
     assert info.remaining_route == [Node(1, 2), Node(1, 1), Node(0, 0)]
-    assert info.current_time == observation.point_of_time == 5
+    assert info.current_time == 5
     assert info.new_customers == [Customer(Node(4, 4), 4), Customer(Node(5, 5), 5)]
 
 
@@ -118,7 +119,8 @@ def test_env_never_accepts_customers(env: TimeBudgetingEnv, reset_options: Reset
     assert info.vehicle_position == Node(0, 0)
     assert info.current_time == 7  # Travel times: 3 + 1 + 1 + 2 = 7
     assert info.remaining_route == []
-    assert observation.point_of_time + observation.free_time_budget == env._t_max
+    _, free_time_budget = observation
+    assert free_time_budget == env._t_max - info.current_time
 
 
 @pytest.mark.parametrize(
@@ -167,7 +169,6 @@ def test_env_terminaton_with_reject_policy(t_max: int, grid_size: int, initial_c
     assert info.vehicle_position == env._depot
     assert info.remaining_route == []
     assert info.current_time <= t_max
-    print(f"Final time: {info.current_time}, Free time budget: {observation.free_time_budget}")
 
 
 @pytest.mark.parametrize(

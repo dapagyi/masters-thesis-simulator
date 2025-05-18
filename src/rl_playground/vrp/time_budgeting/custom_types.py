@@ -17,10 +17,7 @@ class Customer:
     request_time: int = 0
 
 
-@dataclass
-class Observation:
-    point_of_time: int
-    free_time_budget: int
+type Observation = tuple[int, int]
 
 
 @dataclass
