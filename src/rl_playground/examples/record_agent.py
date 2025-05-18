@@ -1,4 +1,5 @@
-"""Train an agent using Stable Baselines3 and record its performance in a video.
+"""
+Train an agent using Stable Baselines3 and record its performance in a video.
 
 https://gymnasium.farama.org/main/introduction/record_agent/
 https://stable-baselines3.readthedocs.io/en/master/guide/quickstart.html

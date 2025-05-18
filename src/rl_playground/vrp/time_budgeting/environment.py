@@ -3,7 +3,8 @@ Time Budgeting
 
 Applying heuristic inspired by the one described in the following paper:
 
-Marlin W. Ulmer, Dirk C. Mattfeld, Felix Köster (2017) Budgeting Time for Dynamic Vehicle Routing with Stochastic Customer Requests. Transportation Science 52(1):20-37.
+Marlin W. Ulmer, Dirk C. Mattfeld, Felix Köster (2017) Budgeting Time for Dynamic Vehicle Routing
+with Stochastic Customer Requests. Transportation Science 52(1):20-37.
 https://doi.org/10.1287/trsc.2016.0719
 """
 

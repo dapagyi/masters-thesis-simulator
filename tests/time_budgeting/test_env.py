@@ -146,7 +146,9 @@ def test_env_action(env: TimeBudgetingEnv, reset_options: ResetOptions, action: 
         (300, 30, 15, 15),
         (400, 40, 20, 20),
         (10000, 40, 20, 50),
-    ],  # The t_max values are not so generous, but with fixed seed, the (initial) customers are generated in a way that they are reachable
+    ],
+    # The t_max values are not so generous, but with fixed seed,
+    # the (initial) customers are generated in a way that they are reachable
 )
 def test_env_terminaton_with_reject_policy(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
     env = TimeBudgetingEnv(

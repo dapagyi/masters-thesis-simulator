@@ -1,3 +1,9 @@
+"""
+Training a Blackjack agent using Q-learning
+
+https://gymnasium.farama.org/main/introduction/train_agent/
+"""
+
 from collections import defaultdict
 from pathlib import Path
 
@@ -30,7 +36,7 @@ class BlackjackAgent:
 
         """
         self.env = env
-        self.q_values = defaultdict(lambda: np.zeros(env.action_space.n))
+        self.q_values = defaultdict(lambda: np.zeros(env.action_space.n))  # type: ignore
 
         self.lr = learning_rate
         self.discount_factor = discount_factor
@@ -101,7 +107,7 @@ def train_blackjack_agent() -> None:
             next_obs, reward, terminated, truncated, info = env.step(action)
 
             # update the agent
-            agent.update(obs, action, reward, terminated, next_obs)
+            agent.update(obs, action, reward, terminated, next_obs)  # type: ignore
 
             # update if the environment is done and the current obs
             done = terminated or truncated

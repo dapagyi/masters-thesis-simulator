@@ -23,7 +23,7 @@ class VehicleRoutingEnv(gym.Env):
 
         self.observation_space = spaces.Dict({
             "current_index": spaces.Discrete(self.num_requests),
-            "vehicle_pos": spaces.Box(low=-100, high=100, shape=(2,), dtype=int),
+            "vehicle_pos": spaces.Box(low=-100, high=100, shape=(2,), dtype=np.int32),
         })
         self.action_space = spaces.Discrete(2)  # 0 = reject, 1 = accept
         self.current_index = 0
@@ -34,7 +34,7 @@ class VehicleRoutingEnv(gym.Env):
         np.random.seed = seed
         return [(np.random.randint(-10, 10), np.random.randint(-10, 10), np.random.randint(5, 20)) for _ in range(n)]
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None):  # type: ignore
         self.vehicle_pos = np.array([0.0, 0.0])
         self.current_index = 0
         self.route_plan = []
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
         while not done:
             if state not in q_table:
-                q_table[state] = np.zeros(env.action_space.n)
+                q_table[state] = np.zeros(env.action_space.n)  # type: ignore
 
             action = env.action_space.sample() if np.random.rand() < epsilon else np.argmax(q_table[state])
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
             next_state = discretize_obs(next_obs)
 
             if next_state not in q_table:
-                q_table[next_state] = np.zeros(env.action_space.n)
+                q_table[next_state] = np.zeros(env.action_space.n)  # type: ignore
 
             target = reward
             if not terminated:
