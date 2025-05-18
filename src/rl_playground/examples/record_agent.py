@@ -16,8 +16,8 @@ def main():
 
     # Train the model
     model = A2C("MlpPolicy", train_env, verbose=1)
-    model.learn(total_timesteps=10_000)  # Train the model
-    train_env.close()  # Close the training environment
+    model.learn(total_timesteps=10_000)
+    train_env.close()
 
     # Environment for evaluation and video recording
     eval_env = gym.make("CartPole-v1", render_mode="rgb_array")

@@ -1,7 +1,7 @@
 """
 Time Budgeting
 
-Applying heuristic inspired by the one described in the following paper:
+Applying a heuristic inspired by the one described in the following paper:
 
 Marlin W. Ulmer, Dirk C. Mattfeld, Felix Köster (2017) Budgeting Time for Dynamic Vehicle Routing
 with Stochastic Customer Requests. Transportation Science 52(1):20-37.
@@ -48,7 +48,7 @@ class TimeBudgetingEnv(gym.Env):
         return self._t_max - self._point_of_time - route_time
 
     def _remove_processed_customers(self) -> None:
-        # Remove customers that are already processed (either accepted or rejected)
+        # Remove customers that have already been processed (either accepted or rejected)
         self._future_customers = list(
             dropwhile(
                 lambda customer: customer.request_time <= self._last_step_time,
@@ -57,7 +57,7 @@ class TimeBudgetingEnv(gym.Env):
         )
 
     def _get_obs(self) -> Observation:
-        # Take only the customers that are new in this step
+        # Take only the customers that are new in this step.
         new_customers_in_current_step = list(
             takewhile(
                 lambda customer: customer.request_time <= self._point_of_time,
@@ -82,7 +82,7 @@ class TimeBudgetingEnv(gym.Env):
         super().reset(seed=seed)
 
         self._point_of_time: int = 0
-        self._route: list[Node] = [self._depot, self._depot]  # Start and end at depot
+        self._route: list[Node] = [self._depot, self._depot]  # Start and end at the depot
 
         if options:
             self._number_of_initial_customers = len(options.initial_customers)
@@ -95,13 +95,13 @@ class TimeBudgetingEnv(gym.Env):
             initial_customers = self._generate_customers(self._number_of_initial_customers, initial=True)
             self._future_customers = self._generate_customers(self._number_of_future_customers, initial=False)
 
-        # We use allow_insert_at_beginning=False to ensure that the depot stays the first node in the route.
+        # We use allow_insert_at_beginning=False to ensure that the depot remains the first node in the route.
         self._insert_nodes_into_route(
             [customer.node for customer in initial_customers], allow_insert_at_beginning=False
         )
 
-        # Travel to the first customer, update the route
-        self._route = self._route[1:]  # Remove depot from the route
+        # Travel to the first customer and update the route.
+        self._route = self._route[1:]  # Remove depot from the route.
         self._last_step_time = 0
         self._point_of_time = self._travel_time(self._depot, self._route[0]) if self._route else 0
 
@@ -116,8 +116,8 @@ class TimeBudgetingEnv(gym.Env):
 
         if action.wait_at_current_location:
             if accepted_customers_nodes and len(self._route) == 1:
-                # Only the depot is in the route (we are at depot), we want to stay there,
-                # but we also want to accept new customers:
+                # Only the depot is in the route (we are at the depot), we want to stay there,
+                # but we also want to accept new customers.
                 self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=True)
                 self._route.insert(0, self._depot)
             else:
@@ -125,8 +125,8 @@ class TimeBudgetingEnv(gym.Env):
 
             self._point_of_time += 1
             if self._free_time_budget() < 0:
-                # If no customers are accepted, we have to check if we are still within the time budget
-                # (Otherwise it is checked in routing.)
+                # When no customers are accepted, we have to verify that we remain within the time budget.
+                # (If customers are accepted, the routing logic already ensures the time constraint is respected.)
                 raise ValueError("Maximum time exceeded")
         else:
             current_position, self._route = self._route[0], self._route[1:]
@@ -135,7 +135,7 @@ class TimeBudgetingEnv(gym.Env):
 
         self._remove_processed_customers()
         observation = self._get_obs()
-        reward = len(action.accepted_customers)  # Immediate reward is the number of newly accepted customers
+        reward = len(action.accepted_customers)  # Immediate reward is the number of newly accepted customers.
         terminated = len(self._route) == 1 and self._route[0] == self._depot and not self._future_customers
         truncated = False
         info = self._get_info()
@@ -158,8 +158,8 @@ class TimeBudgetingEnv(gym.Env):
 
     def _insert_nodes_into_route(self, nodes: list[Node], allow_insert_at_beginning: bool = True) -> None:
         if nodes and not self._route:
-            # If we already came back to the depot, but there are new customers,
-            # we want to ensure that we we will return to the depot after visiting them.
+            # If we have already returned to the depot, but there are new customers,
+            # we want to ensure that we will return to the depot after visiting them.
             self._route = [self._depot] if allow_insert_at_beginning else [self._depot, self._depot]
 
         route = min_insert_heuristic(

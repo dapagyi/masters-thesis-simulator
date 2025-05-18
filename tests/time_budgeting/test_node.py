@@ -11,14 +11,14 @@ def fixed_seed():
 
 
 def test_fixed_seed():
-    # Test that the random seed is fixed
+    # Test that the random seed is fixed.
     assert random.randint(0, 100) == 81
     assert random.randint(0, 100) == 14
     assert random.randint(0, 100) == 3
 
 
 def test_fixed_seed_different_runs():
-    # Test that the random seed is fixed across different runs
+    # Test that the random seed is fixed across different runs.
     assert random.randint(0, 100) == 81
     assert random.randint(0, 100) == 14
     assert random.randint(0, 100) == 3
