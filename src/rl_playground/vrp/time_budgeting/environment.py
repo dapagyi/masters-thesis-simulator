@@ -113,7 +113,14 @@ class TimeBudgetingEnv(gym.Env):
         accepted_customers_nodes = [customer.node for customer in action.accepted_customers]
 
         if action.wait_at_current_location:
-            self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=False)
+            if accepted_customers_nodes and len(self._route) == 1:
+                # Only the depot is in the route (we are at depot), we want to stay there,
+                # but we also want to accept new customers:
+                self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=True)
+                self._route.insert(0, self._depot)
+            else:
+                self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=False)
+
             self._point_of_time += 1
         else:
             current_position, self._route = self._route[0], self._route[1:]
@@ -131,10 +138,6 @@ class TimeBudgetingEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info
 
-    def render(self, mode="human"): ...  # TODO
-
-    def close(self): ...  # TODO?
-
     def _generate_customers(self, number_of_customers, t: int | None = None) -> list[Customer]:
         customers = [
             Customer(
@@ -150,6 +153,11 @@ class TimeBudgetingEnv(gym.Env):
         )
 
     def _insert_nodes_into_route(self, nodes: list[Node], allow_insert_at_beginning: bool = True) -> None:
+        if nodes and not self._route:
+            # If we already came back to the depot, but there are new customers,
+            # we want to ensure that we we will return to the depot after visiting them.
+            self._route = [self._depot] if allow_insert_at_beginning else [self._depot, self._depot]
+
         # Insert accepted customers' nodes into the current route using cheapest insertion heuristic
         for node in nodes:
             best_position = None
