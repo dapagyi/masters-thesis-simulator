@@ -5,11 +5,6 @@ import pytest
 from rl_playground.vrp.time_budgeting.custom_types import Node
 
 
-@pytest.fixture(autouse=True)
-def fixed_seed():
-    random.seed(42)
-
-
 def test_fixed_seed():
     # Test that the random seed is fixed.
     assert random.randint(0, 100) == 81
