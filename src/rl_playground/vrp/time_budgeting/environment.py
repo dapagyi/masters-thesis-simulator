@@ -46,7 +46,7 @@ class TimeBudgetingEnv(gym.Env):
         route_time = sum(self._travel_time(u, v) for u, v in pairwise(self._route))
         return self._t_max - self._point_of_time - route_time
 
-    def _get_obs(self) -> Observation:
+    def _remove_processed_customers(self) -> None:
         # Remove customers that are already processed (either accepted or rejected)
         self._future_customers = list(
             dropwhile(
@@ -55,19 +55,19 @@ class TimeBudgetingEnv(gym.Env):
             )
         )
 
+    def _get_obs(self) -> Observation:
         # Take only the customers that are new in this step
-        self._new_customers_in_current_step = list(
+        new_customers_in_current_step = list(
             takewhile(
                 lambda customer: customer.request_time <= self._point_of_time,
                 self._future_customers,
             )
         )
-
         return Observation(
             current_time=self._point_of_time,
             vehicle_position=self._route[0],
             remaining_route=self._route[1:],  # Exclude current position
-            new_customers=self._new_customers_in_current_step,
+            new_customers=new_customers_in_current_step,
         )
 
     def _get_info(self) -> Info:
@@ -130,6 +130,7 @@ class TimeBudgetingEnv(gym.Env):
             self._insert_nodes_into_route(accepted_customers_nodes)
             self._point_of_time += self._travel_time(current_position, self._route[0])
 
+        self._remove_processed_customers()
         observation = self._get_obs()
         reward = len(action.accepted_customers)  # Immediate reward is the number of newly accepted customers
         terminated = len(self._route) == 1 and self._route[0] == self._depot and not self._future_customers
