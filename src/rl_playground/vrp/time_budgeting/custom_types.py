@@ -18,13 +18,13 @@ class Customer:
 
 
 @dataclass
-class Info:
+class Observation:
     point_of_time: int
     free_time_budget: int
 
 
 @dataclass
-class Observation:
+class Info:
     current_time: int
     vehicle_position: Node
     remaining_route: list[Node]

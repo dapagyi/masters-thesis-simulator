@@ -57,6 +57,13 @@ class TimeBudgetingEnv(gym.Env):
         )
 
     def _get_obs(self) -> Observation:
+        # FIXME: Maybe this method should return a numpy array instead?
+        return Observation(
+            point_of_time=self._point_of_time,
+            free_time_budget=self._free_time_budget(),
+        )
+
+    def _get_info(self) -> Info:
         # Take only the customers that are new in this step.
         new_customers_in_current_step = list(
             takewhile(
@@ -64,18 +71,11 @@ class TimeBudgetingEnv(gym.Env):
                 self._future_customers,
             )
         )
-        return Observation(
+        return Info(
             current_time=self._point_of_time,
             vehicle_position=self._route[0],
             remaining_route=self._route[1:],  # Exclude current position
             new_customers=new_customers_in_current_step,
-        )
-
-    def _get_info(self) -> Info:
-        # FIXME: Maybe this method should return a numpy array instead?
-        return Info(
-            point_of_time=self._point_of_time,
-            free_time_budget=self._free_time_budget(),
         )
 
     def reset(self, seed: int | None = None, options: ResetOptions | None = None) -> tuple[Observation, Info]:  # type: ignore

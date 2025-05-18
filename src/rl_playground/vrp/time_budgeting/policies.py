@@ -13,4 +13,4 @@ wait_action = Action(
 
 def reject_policy(observation: Observation, info: Info) -> Action:
     """Reject all new customers and go to the next customer in the route if there is one."""
-    return go_action if observation.remaining_route else wait_action
+    return go_action if info.remaining_route else wait_action
