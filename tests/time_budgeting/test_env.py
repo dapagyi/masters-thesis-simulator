@@ -2,7 +2,7 @@ import pytest
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Node, ResetOptions
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
-from rl_playground.vrp.time_budgeting.policies import go_action, reject_policy
+from rl_playground.vrp.time_budgeting.policies import go_action, reject_policy, wait_action
 
 
 def test_invalid_route():
@@ -21,7 +21,7 @@ def test_invalid_route():
     )
     env.reset(options=reset_options)  # This should not raise an error
 
-    with pytest.raises(ValueError, match="Route exceeds time budget"):
+    with pytest.raises(ValueError, match="Route exceeds maximum travel time"):
         env = TimeBudgetingEnv(
             t_max=9,  # Not enough time to visit the customer and return to the depot
             grid_size=10,
@@ -57,6 +57,14 @@ def reset_options():
         initial_customers=initial_customers,
         future_customers=future_customers,
     )
+
+
+def test_raise_error_when_not_moving(env: TimeBudgetingEnv, reset_options: ResetOptions):
+    observation, info = env.reset(options=reset_options)
+    assert observation.vehicle_position == Node(2, 2)
+    with pytest.raises(ValueError, match="Maximum time exceeded"):
+        while True:
+            env.step(wait_action)
 
 
 def test_env_init(env: TimeBudgetingEnv, reset_options: ResetOptions):

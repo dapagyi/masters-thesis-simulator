@@ -14,6 +14,7 @@ import gymnasium as gym
 import numpy as np
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
+from rl_playground.vrp.time_budgeting.routing import min_insert_heuristic
 
 
 class TimeBudgetingEnv(gym.Env):
@@ -122,13 +123,12 @@ class TimeBudgetingEnv(gym.Env):
                 self._insert_nodes_into_route(accepted_customers_nodes, allow_insert_at_beginning=False)
 
             self._point_of_time += 1
+            if self._point_of_time > self._t_max:
+                raise ValueError("Maximum time exceeded")
         else:
             current_position, self._route = self._route[0], self._route[1:]
             self._insert_nodes_into_route(accepted_customers_nodes)
             self._point_of_time += self._travel_time(current_position, self._route[0])
-
-        if self._point_of_time > self._t_max:
-            raise ValueError("Time budget exceeded")
 
         observation = self._get_obs()
         reward = len(action.accepted_customers)  # Immediate reward is the number of newly accepted customers
@@ -158,25 +158,11 @@ class TimeBudgetingEnv(gym.Env):
             # we want to ensure that we we will return to the depot after visiting them.
             self._route = [self._depot] if allow_insert_at_beginning else [self._depot, self._depot]
 
-        # Insert accepted customers' nodes into the current route using cheapest insertion heuristic
-        for node in nodes:
-            best_position = None
-            min_route_time = float("inf")
-
-            # Usually, we can insert nodes at the beginning of the route,
-            # but at the first step and when we want to stay at our current location,
-            # we only allow insertions after the first node.
-            #
-            # The last position must remain the depot,
-            # so we don't allow inserting a node at index len(self._route).
-            for i in range(0 if allow_insert_at_beginning else 1, len(self._route)):
-                new_route = self._route[:i] + [node] + self._route[i:]
-                total_time = sum(self._travel_time(u, v) for u, v in pairwise(new_route))
-                if total_time < min_route_time:
-                    min_route_time = total_time
-                    best_position = i
-            if best_position is not None:
-                self._route.insert(best_position, node)
-
-            if self._point_of_time + min_route_time > self._t_max:
-                raise ValueError("Route exceeds time budget")
+        route = min_insert_heuristic(
+            route=self._route,
+            nodes=nodes,
+            allow_insert_at_beginning=allow_insert_at_beginning,
+            travel_time=self._travel_time,
+            max_travel_time=self._t_max - self._point_of_time,
+        )
+        self._route = route
