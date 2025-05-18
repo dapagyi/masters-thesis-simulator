@@ -86,17 +86,17 @@ class TimeBudgetingEnv(gym.Env):
         if options:
             self._number_of_initial_customers = len(options.initial_customers)
             self._number_of_future_customers = len(options.future_customers)
-            self._initial_customers = options.initial_customers
+            initial_customers = options.initial_customers
             self._future_customers = options.future_customers
         else:
             if self._number_of_initial_customers is None or self._number_of_future_customers is None:
                 raise ValueError("Number of initial and future customers must be provided")
-            self._initial_customers = self._generate_customers(self._number_of_initial_customers, t=0)
-            self._future_customers = self._generate_customers(self._number_of_future_customers)
+            initial_customers = self._generate_customers(self._number_of_initial_customers, initial=True)
+            self._future_customers = self._generate_customers(self._number_of_future_customers, initial=False)
 
         # We use allow_insert_at_beginning=False to ensure that the depot stays the first node in the route.
         self._insert_nodes_into_route(
-            [customer.node for customer in self._initial_customers], allow_insert_at_beginning=False
+            [customer.node for customer in initial_customers], allow_insert_at_beginning=False
         )
 
         # Travel to the first customer, update the route
@@ -139,11 +139,11 @@ class TimeBudgetingEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info
 
-    def _generate_customers(self, number_of_customers, t: int | None = None) -> list[Customer]:
+    def _generate_customers(self, number_of_customers, initial: bool) -> list[Customer]:
         customers = [
             Customer(
-                node=Node(x=np.random.randint(0, self._grid_size + 1), y=np.random.randint(0, self._grid_size + 1)),
-                request_time=t if t else np.random.randint(0, self._t_max),
+                node=Node(x=np.random.randint(0, self._grid_size), y=np.random.randint(0, self._grid_size)),
+                request_time=0 if initial else np.random.randint(1, self._t_max),
             )
             for _ in range(number_of_customers)
         ]
