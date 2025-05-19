@@ -62,7 +62,7 @@ def reset_options():
 def test_raise_error_when_not_moving(env: TimeBudgetingEnv, reset_options: ResetOptions):
     observation, info = env.reset(options=reset_options)
     assert info.vehicle_position == Node(2, 2)
-    with pytest.raises(ValueError, match="Maximum time exceeded"):
+    with pytest.raises(ValueError, match="Route exceeds maximum travel time"):
         while True:
             env.step(wait_action)
 
