@@ -43,7 +43,7 @@ class TimeBudgetingEnv(gym.Env):
     def _travel_time(self, from_node: Node, to_node: Node) -> int:
         return ceil(from_node.distance_to(to_node) / self._vehicle_speed)
 
-    def _free_time_budget(self, route: list[Node] | None = None, point_of_time: int | None = None) -> int:
+    def free_time_budget(self, route: list[Node] | None = None, point_of_time: int | None = None) -> int:
         if route is None:
             route = self._route
         if point_of_time is None:
@@ -53,7 +53,7 @@ class TimeBudgetingEnv(gym.Env):
         return self._t_max - point_of_time - route_time
 
     def _validate_route(self, route: list[Node] | None = None, point_of_time: int | None = None):
-        if self._free_time_budget(route, point_of_time) < 0:
+        if self.free_time_budget(route, point_of_time) < 0:
             raise ValueError("Route exceeds maximum travel time")
 
     def _generate_customers(self, number_of_customers, initial: bool) -> list[Customer]:
@@ -116,7 +116,7 @@ class TimeBudgetingEnv(gym.Env):
 
     def step(self, action: Action):  # type: ignore
         self._last_step_time = self._point_of_time
-        self._route, self._point_of_time = self._calculate_post_decison_state(action)
+        self._route, self._point_of_time = self.calculate_post_decison_state(action)
         self._remove_processed_customers()
         observation = self._get_obs()
         reward = len(action.accepted_customers)
@@ -126,7 +126,7 @@ class TimeBudgetingEnv(gym.Env):
 
         return observation, reward, terminated, truncated, info
 
-    def _calculate_post_decison_state(self, action: Action) -> tuple[list[Node], int]:
+    def calculate_post_decison_state(self, action: Action) -> tuple[list[Node], int]:
         point_of_time = self._point_of_time
         route = self._route.copy()
 
@@ -151,7 +151,7 @@ class TimeBudgetingEnv(gym.Env):
         return route, point_of_time
 
     def _get_obs(self) -> Observation:
-        return (self._point_of_time, self._free_time_budget())
+        return (self._point_of_time, self.free_time_budget())
 
     def _get_info(self) -> Info:
         # Take only the customers that are new in this step.
