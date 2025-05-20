@@ -1,0 +1,113 @@
+import random
+from itertools import combinations
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from rl_playground.vrp.time_budgeting.custom_types import Action, Info, Observation
+from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
+
+
+class TabularAgent:
+    def __init__(
+        self,
+        alpha: float,
+        epsilon: float,
+        gamma: float,
+        t_max: int,
+        scale_factor: int = 1,
+    ):
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.gamma = gamma
+        self.t_max = t_max
+        self.scale_factor = scale_factor
+        self.scaled_t_max = t_max // scale_factor
+        self.value_table = np.zeros((self.scaled_t_max + 1, self.scaled_t_max + 1))
+
+    def get_value(self, observation: Observation) -> float:
+        point_of_time, free_time_budget = observation
+
+        # Scale and clamp indices
+        scaled_point_of_time = point_of_time // self.scale_factor
+        scaled_free_time_budget = free_time_budget // self.scale_factor
+
+        time_idx = min(scaled_point_of_time, self.scaled_t_max)
+        budget_idx = min(scaled_free_time_budget, self.scaled_t_max)
+
+        return self.value_table[time_idx, budget_idx]
+
+    def _get_valid_actions(self, env: TimeBudgetingEnv, info: Info) -> list[Action]:
+        valid_actions: list[Action] = []
+        new_customers = info.new_customers
+
+        for i in range(len(new_customers) + 1):
+            for accepted_customer_tuple in combinations(new_customers, i):
+                accepted_customers = list(accepted_customer_tuple)
+                for wait_at_current_location in [True, False]:
+                    action = Action(
+                        accepted_customers=accepted_customers,
+                        wait_at_current_location=wait_at_current_location,
+                    )
+                    try:
+                        # Check if the action is valid. Invalid actions will raise a ValueError.
+                        env.calculate_post_decison_state(action)
+                        valid_actions.append(action)
+                    except ValueError:
+                        # Action is invalid
+                        continue
+        return valid_actions
+
+    def choose_action(self, env: TimeBudgetingEnv, observation: Observation, info: Info) -> Action:
+        valid_actions = self._get_valid_actions(env, info)
+
+        if random.random() < self.epsilon:
+            # Explore
+            return random.choice(valid_actions)
+
+        # Exploit
+        best_action = valid_actions[0]
+        max_q_value = -float("inf")
+
+        for action in valid_actions:
+            reward = len(action.accepted_customers)
+            next_route_state, next_point_of_time = env.calculate_post_decison_state(action)
+            next_free_time_budget = env.free_time_budget(route=next_route_state, point_of_time=next_point_of_time)
+            next_observation: Observation = (next_point_of_time, next_free_time_budget)
+
+            q_value = reward + self.gamma * self.get_value(next_observation)
+
+            if q_value > max_q_value:
+                max_q_value = q_value
+                best_action = action
+
+        return best_action
+
+    def update(self, observation: Observation, reward: float, next_observation: Observation, terminated: bool) -> None:
+        current_point_of_time, current_free_time_budget = observation
+
+        # Scale and clamp indices for current state
+        scaled_current_point_of_time = current_point_of_time // self.scale_factor
+        scaled_current_free_time_budget = current_free_time_budget // self.scale_factor
+
+        current_time_idx = min(scaled_current_point_of_time, self.scaled_t_max)
+        # Ensure budget_idx is non-negative before min clamping
+        current_budget_idx = min(max(0, scaled_current_free_time_budget), self.scaled_t_max)
+        current_value = self.value_table[current_time_idx, current_budget_idx]
+
+        next_value = self.get_value(next_observation) if not terminated else 0.0
+        td_error = reward + self.gamma * next_value - current_value
+        self.value_table[current_time_idx, current_budget_idx] += self.alpha * td_error
+
+    def save_value_table_heatmap(self, heatmap_path: Path) -> None:
+        """Saves a heatmap of the agent's value table."""
+        fig, ax = plt.subplots(figsize=(10, 8), dpi=144)
+        im = ax.imshow(self.value_table, aspect="auto", origin="lower", cmap="viridis")
+
+        fig.colorbar(im, ax=ax, label="Value")
+        ax.set_xlabel(f"Scaled Free Time Budget (/{self.scale_factor})")
+        ax.set_ylabel(f"Scaled Point of Time (/{self.scale_factor})")
+        ax.set_title(f"Value Table Heatmap (t_max={self.t_max}, scale={self.scale_factor})")
+        fig.savefig(heatmap_path)
+        plt.close(fig)
