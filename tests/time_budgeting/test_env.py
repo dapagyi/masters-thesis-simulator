@@ -2,7 +2,7 @@ import pytest
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Node, ResetOptions
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
-from rl_playground.vrp.time_budgeting.policies import go_action, reject_policy, wait_action
+from rl_playground.vrp.time_budgeting.policies import go_action, greedy_policy, reject_policy, wait_action
 
 
 def test_invalid_route():
@@ -169,6 +169,38 @@ def test_env_terminaton_with_reject_policy(t_max: int, grid_size: int, initial_c
     assert info.vehicle_position == env._depot
     assert info.remaining_route == []
     assert info.current_time <= t_max
+
+
+@pytest.mark.parametrize(
+    "t_max, grid_size, initial_customers, future_customers",
+    [
+        (10000, 10, 5, 5),
+        (20000, 20, 10, 10),
+        (30000, 30, 15, 15),
+        (40000, 40, 20, 20),
+        (10000, 40, 20, 50),
+    ],
+)
+def test_greedy_policy(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
+    env = TimeBudgetingEnv(
+        t_max=t_max,
+        number_of_initial_customers=initial_customers,
+        number_of_future_customers=future_customers,
+        grid_size=grid_size,
+    )
+    observation, info = env.reset()
+
+    done = False
+    total_reward = 0
+    while not done:
+        action = greedy_policy(observation, info, env)
+        observation, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
+        done = terminated and not truncated
+    assert info.vehicle_position == env._depot
+    assert info.remaining_route == []
+    assert info.current_time <= t_max
+    assert total_reward == future_customers  # There's plenty of time to accept all customers
 
 
 @pytest.mark.parametrize(

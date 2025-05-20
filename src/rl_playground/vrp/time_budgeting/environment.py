@@ -81,6 +81,7 @@ class TimeBudgetingEnv(gym.Env):
 
     def reset(self, seed: int | None = None, options: ResetOptions | None = None) -> tuple[Observation, Info]:  # type: ignore
         super().reset(seed=seed)
+        np.random.seed(seed)
 
         self._point_of_time: int = 0
         self._route: list[Node] = [self._depot, self._depot]  # Start and end at the depot
