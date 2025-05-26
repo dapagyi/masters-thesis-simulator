@@ -15,7 +15,7 @@ import gymnasium as gym
 import numpy as np
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
-from rl_playground.vrp.time_budgeting.customers import generate_customers_uniform
+from rl_playground.vrp.time_budgeting.customers import generate_clustered_customers, generate_customers_uniform
 from rl_playground.vrp.time_budgeting.routing import min_insert_heuristic
 
 
@@ -28,6 +28,7 @@ class TimeBudgetingEnv(gym.Env):
         number_of_future_customers: int | None = None,
         grid_size: int = 20,
         depot: Node | None = None,
+        number_of_clusters: int | None = None,
     ) -> None:
         super().__init__()
 
@@ -38,6 +39,7 @@ class TimeBudgetingEnv(gym.Env):
         self._grid_size = grid_size
         center: int = grid_size // 2
         self._depot = depot if depot else Node(center, center)
+        self._number_of_clusters = number_of_clusters
 
         # TODO: Define action and observation spaces
 
@@ -58,12 +60,26 @@ class TimeBudgetingEnv(gym.Env):
             raise ValueError("Route exceeds maximum travel time")
 
     def _generate_customers(self, number_of_customers, initial: bool) -> list[Customer]:
-        return generate_customers_uniform(
-            number_of_customers=number_of_customers,
-            initial=initial,
-            grid_size=self._grid_size,
-            t_max=self._t_max,
-        )
+        if self._number_of_clusters:
+            customers = generate_clustered_customers(
+                number_of_customers=number_of_customers,
+                grid_size=self._grid_size,
+                t_max=self._t_max,
+                num_clusters=self._number_of_clusters,
+                cluster_std=self._grid_size / 10,
+            )
+        else:
+            customers = generate_customers_uniform(
+                number_of_customers=number_of_customers,
+                grid_size=self._grid_size,
+                t_max=self._t_max,
+            )
+
+        if initial:
+            for customer in customers:
+                customer.request_time = 0
+
+        return sorted(customers, key=lambda x: x.request_time)
 
     def _remove_processed_customers(self) -> None:
         # Remove customers that have already been processed (either accepted or rejected)

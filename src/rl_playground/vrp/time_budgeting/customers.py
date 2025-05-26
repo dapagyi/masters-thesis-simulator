@@ -7,19 +7,43 @@ from matplotlib import pyplot as plt
 from rl_playground.vrp.time_budgeting.custom_types import Customer, Node
 
 
-def generate_customers_uniform(number_of_customers: int, initial: bool, grid_size: int, t_max: int) -> list[Customer]:
-    customers = [
+def generate_clustered_customers(
+    number_of_customers: int,
+    grid_size: int,
+    t_max: int,
+    num_clusters: int = 3,
+    cluster_std: float = 2,
+) -> list[Customer]:
+    # Randomly place cluster centers
+    cluster_centers = [(np.random.uniform(0, grid_size), np.random.uniform(0, grid_size)) for _ in range(num_clusters)]
+
+    customers = []
+    for _ in range(number_of_customers):
+        # Randomly pick a cluster center
+        cx, cy = cluster_centers[np.random.randint(num_clusters)]
+
+        # Sample customer position around the cluster center
+        x = np.clip(np.random.normal(loc=cx, scale=cluster_std), 0, grid_size)
+        y = np.clip(np.random.normal(loc=cy, scale=cluster_std), 0, grid_size)
+
+        customers.append(
+            Customer(
+                node=Node(x=x, y=y),
+                request_time=np.random.randint(1, t_max),
+            )
+        )
+
+    return customers
+
+
+def generate_customers_uniform(number_of_customers: int, grid_size: int, t_max: int) -> list[Customer]:
+    return [
         Customer(
             node=Node(x=np.random.uniform(0, grid_size), y=np.random.uniform(0, grid_size)),
-            request_time=0 if initial else np.random.randint(1, t_max),
+            request_time=np.random.randint(1, t_max),
         )
         for _ in range(number_of_customers)
     ]
-
-    return sorted(
-        customers,
-        key=lambda x: x.request_time,
-    )
 
 
 def visualize_customers(
@@ -75,7 +99,7 @@ def visualize_customers(
 if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
-    customers = generate_customers_uniform(40, initial=False, grid_size=20, t_max=120)
+    customers = generate_clustered_customers(40, grid_size=20, t_max=120)
     route = random.sample(customers, 10)
 
     visualize_customers(customers, route)
