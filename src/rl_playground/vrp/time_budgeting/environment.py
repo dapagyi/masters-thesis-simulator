@@ -15,6 +15,7 @@ import gymnasium as gym
 import numpy as np
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
+from rl_playground.vrp.time_budgeting.customers import generate_customers_uniform
 from rl_playground.vrp.time_budgeting.routing import min_insert_heuristic
 
 
@@ -57,17 +58,11 @@ class TimeBudgetingEnv(gym.Env):
             raise ValueError("Route exceeds maximum travel time")
 
     def _generate_customers(self, number_of_customers, initial: bool) -> list[Customer]:
-        customers = [
-            Customer(
-                node=Node(x=np.random.randint(0, self._grid_size), y=np.random.randint(0, self._grid_size)),
-                request_time=0 if initial else np.random.randint(1, self._t_max),
-            )
-            for _ in range(number_of_customers)
-        ]
-
-        return sorted(
-            customers,
-            key=lambda x: x.request_time,
+        return generate_customers_uniform(
+            number_of_customers=number_of_customers,
+            initial=initial,
+            grid_size=self._grid_size,
+            t_max=self._t_max,
         )
 
     def _remove_processed_customers(self) -> None:

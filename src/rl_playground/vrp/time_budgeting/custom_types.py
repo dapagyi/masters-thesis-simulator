@@ -4,8 +4,8 @@ from math import sqrt
 
 @dataclass
 class Node:
-    x: int
-    y: int
+    x: float
+    y: float
 
     def distance_to(self, other: "Node") -> float:
         return sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)

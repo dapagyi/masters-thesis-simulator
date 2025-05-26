@@ -200,7 +200,9 @@ def test_greedy_policy(t_max: int, grid_size: int, initial_customers: int, futur
     assert info.vehicle_position == env._depot
     assert info.remaining_route == []
     assert info.current_time <= t_max
-    assert total_reward == future_customers  # There's plenty of time to accept all customers
+    assert (
+        total_reward == future_customers
+    )  # There's plenty of time to accept all customers FIXME: this is not necessarily always true
 
 
 @pytest.mark.parametrize(
