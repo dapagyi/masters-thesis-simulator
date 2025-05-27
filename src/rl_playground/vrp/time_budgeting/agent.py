@@ -93,7 +93,7 @@ class TabularAgent:
 
         for action in valid_actions:
             reward = len(action.accepted_customers)
-            next_route_state, next_point_of_time = env.calculate_post_decison_state(action)
+            next_route_state, next_point_of_time, _ = env.calculate_post_decison_state(action)
             next_free_time_budget = env.free_time_budget(route=next_route_state, point_of_time=next_point_of_time)
             next_observation: Observation = (next_point_of_time, next_free_time_budget)
 

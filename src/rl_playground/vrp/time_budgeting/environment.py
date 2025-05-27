@@ -90,12 +90,24 @@ class TimeBudgetingEnv(gym.Env):
             )
         )
 
+    @property
+    def final_route(self) -> list[Node]:
+        """Returns the final route after all customers have been processed."""
+        assert self.is_done
+        return [*self._final_route, self._depot]
+
+    @property
+    def is_done(self) -> bool:
+        """Checks if the environment is done, i.e., no more customers and at depot."""
+        return len(self._route) == 1 and not self._future_customers
+
     def reset(self, seed: int | None = None, options: ResetOptions | None = None) -> tuple[Observation, Info]:  # type: ignore
         super().reset(seed=seed)
         np.random.seed(seed)
 
         self._point_of_time: int = 0
         self._route: list[Node] = [self._depot, self._depot]  # Start and end at the depot
+        self._final_route: list[Node] = [self._depot]
 
         if options:
             self._number_of_initial_customers = len(options.initial_customers)
@@ -127,17 +139,19 @@ class TimeBudgetingEnv(gym.Env):
 
     def step(self, action: Action):  # type: ignore
         self._last_step_time = self._point_of_time
-        self._route, self._point_of_time = self.calculate_post_decison_state(action)
+        self._route, self._point_of_time, left_position = self.calculate_post_decison_state(action)
+        if left_position:
+            self._final_route.append(left_position)
         self._remove_processed_customers()
         observation = self._get_obs()
         reward = len(action.accepted_customers)
-        terminated = len(self._route) == 1 and not self._future_customers
+        terminated = self.is_done
         truncated = False
         info = self._get_info()
 
         return observation, reward, terminated, truncated, info
 
-    def calculate_post_decison_state(self, action: Action) -> tuple[list[Node], int]:
+    def calculate_post_decison_state(self, action: Action) -> tuple[list[Node], int, Node | None]:
         point_of_time = self._point_of_time
         route = self._route.copy()
 
@@ -152,14 +166,16 @@ class TimeBudgetingEnv(gym.Env):
             travel_time=self._travel_time,
         )
 
+        left_position = None
         if action.wait_at_current_location:
             point_of_time += 1
         else:
             current_position, route = route[0], route[1:]
             point_of_time += self._travel_time(current_position, route[0])
+            left_position = current_position
 
         self._validate_route(route, point_of_time)
-        return route, point_of_time
+        return route, point_of_time, left_position
 
     def _get_obs(self) -> Observation:
         return (self._point_of_time, self.free_time_budget())

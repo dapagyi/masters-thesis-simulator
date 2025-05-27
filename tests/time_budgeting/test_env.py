@@ -200,9 +200,10 @@ def test_greedy_policy(t_max: int, grid_size: int, initial_customers: int, futur
     assert info.vehicle_position == env._depot
     assert info.remaining_route == []
     assert info.current_time <= t_max
-    assert (
-        total_reward == future_customers
-    )  # There's plenty of time to accept all customers FIXME: this is not necessarily always true
+    # Since t_max is large, we expect to accept most of the future customers.
+    # (Because request times are generated uniformly, some may occur near the end of the time horizon,
+    # but we should still be able to accept most of them.)
+    assert total_reward >= 0.8 * future_customers
 
 
 @pytest.mark.parametrize(
@@ -259,3 +260,5 @@ def test_return_to_depot_then_accept_new_customers(env: TimeBudgetingEnv, wait_a
     assert info.remaining_route == []
     assert info.current_time <= env._t_max
     assert info.current_time == 11 + (1 if wait_at_depot_for_one_step else 0)
+
+    assert env.final_route == [Node(0, 0), Node(1, 1), Node(0, 0), Node(2, 2), Node(0, 2), Node(0, 0)]
