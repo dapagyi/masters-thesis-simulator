@@ -9,9 +9,59 @@ from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
 from rl_playground.vrp.time_budgeting.policies import greedy_policy
 
 
-def train(episodes: int, seed: int | None, env: TimeBudgetingEnv, greedy_env: TimeBudgetingEnv, agent: TabularAgent):
+def save_value_table_heatmap(
+    agent: TabularAgent, results_dir: Path = Path("./results"), filename: str = "value_heatmap.png"
+):
+    """Saves a heatmap of the agent's value table."""
+    results_dir.mkdir(parents=True, exist_ok=True)
+    agent.save_value_table_heatmap(results_dir, filename=filename)
+
+
+def save_rewards_plot(
+    rl_rewards_per_episode: list[float],
+    greedy_rewards_per_episode: list[float],
+    results_dir: Path = Path("./results"),
+    filename: str = "rewards_comparison.png",
+):
+    """Creates and saves a plot comparing RL and Greedy agent rewards."""
+    results_dir.mkdir(parents=True, exist_ok=True)
+    rewards_plot_save_path = results_dir / filename
+    fig, ax = plt.subplots(figsize=(12, 6), dpi=144)
+    ax.plot(rl_rewards_per_episode, label="RL Agent Reward", alpha=0.7)
+    ax.plot(greedy_rewards_per_episode, label="Greedy Agent Reward", alpha=0.7, linestyle="--")
+
+    # Calculate and plot moving average for RL agent
+    if len(rl_rewards_per_episode) >= 100:
+        moving_avg_rl = np.convolve(rl_rewards_per_episode, np.ones(100) / 100, mode="valid")
+        ax.plot(
+            np.arange(99, len(rl_rewards_per_episode)),
+            moving_avg_rl,
+            label="RL Agent Moving Avg (100 episodes)",
+            color="blue",
+            linewidth=2,
+        )
+
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Total Reward")
+    ax.set_title("RL Agent vs. Greedy Agent Performance")
+    ax.legend()
+    ax.grid(True)
+    fig.savefig(rewards_plot_save_path)
+    plt.close(fig)
+
+
+def train(
+    episodes: int,
+    seed: int | None,
+    env: TimeBudgetingEnv,
+    greedy_env: TimeBudgetingEnv,
+    agent: TabularAgent,
+    results_dir: Path = Path("./results"),
+    refinement_interval: int = 100,
+):
     rl_rewards_per_episode = []
     greedy_rewards_per_episode = []
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     for episode in (pb := trange(episodes, desc="Training Episodes")):
         episode_seed = seed + episode if seed is not None else None
@@ -56,6 +106,15 @@ def train(episodes: int, seed: int | None, env: TimeBudgetingEnv, greedy_env: Ti
                 f"Avg Greedy Reward (last 100): {avg_greedy_reward:.2f}"
             )
 
+        # Refinement and heatmap saving logic
+        if refinement_interval > 0 and (episode + 1) % refinement_interval == 0 and (episode + 1) < episodes:
+            heatmap_filename = f"value_heatmap_episode_{episode + 1}.png"
+            save_value_table_heatmap(agent, results_dir, filename=heatmap_filename)
+            pb.write(f"Saved heatmap to {results_dir / heatmap_filename}")
+            if agent.scale_factor > 1:  # Check if refinement is possible
+                agent.refine_value_table()
+                pb.write(f"Refined value table. New scale_factor: {agent.scale_factor}")
+
     return rl_rewards_per_episode, greedy_rewards_per_episode
 
 
@@ -63,34 +122,10 @@ def save_results_and_plots(
     rl_rewards_per_episode: list[float],
     greedy_rewards_per_episode: list[float],
     agent: TabularAgent,
-    results_dir: str = "./results",
+    results_dir: Path = Path("./results"),
 ):
-    results_dir_path = Path(results_dir)
-    results_dir_path.mkdir(parents=True, exist_ok=True)  # Ensure results directory exists
-    heatmap_save_path = results_dir_path / "value_heatmap.png"
-    agent.save_value_table_heatmap(heatmap_save_path)
-
-    # Create and save rewards comparison plot
-    rewards_plot_save_path = results_dir_path / "rewards_comparison.png"
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=144)
-    ax.plot(rl_rewards_per_episode, label="RL Agent Reward", alpha=0.7)
-    ax.plot(greedy_rewards_per_episode, label="Greedy Agent Reward", alpha=0.7, linestyle="--")
-
-    # Calculate and plot moving average for RL agent
-    if len(rl_rewards_per_episode) >= 100:
-        moving_avg_rl = np.convolve(rl_rewards_per_episode, np.ones(100) / 100, mode="valid")
-        ax.plot(
-            np.arange(99, len(rl_rewards_per_episode)),
-            moving_avg_rl,
-            label="RL Agent Moving Avg (100 episodes)",
-            color="blue",
-            linewidth=2,
-        )
-
-    ax.set_xlabel("Episode")
-    ax.set_ylabel("Total Reward")
-    ax.set_title("RL Agent vs. Greedy Agent Performance")
-    ax.legend()
-    ax.grid(True)
-    fig.savefig(rewards_plot_save_path)
-    plt.close(fig)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    save_value_table_heatmap(agent, results_dir, filename="value_heatmap_final.png")
+    save_rewards_plot(
+        rl_rewards_per_episode, greedy_rewards_per_episode, results_dir, filename="rewards_comparison_final.png"
+    )

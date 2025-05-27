@@ -47,7 +47,10 @@ def generate_customers_uniform(number_of_customers: int, grid_size: int, t_max: 
 
 
 def visualize_customers(
-    customers: list[Customer], route: list[Customer] | None = None, results_dir: Path = Path("results")
+    customers: list[Customer],
+    route: list[Customer] | None = None,
+    results_dir: Path = Path("results"),
+    filename: str = "customers.svg",
 ) -> None:
     xs = [customer.node.x for customer in customers]
     ys = [customer.node.y for customer in customers]
@@ -90,7 +93,7 @@ def visualize_customers(
     ax.set_ylabel("Count")
 
     results_dir.mkdir(exist_ok=True)
-    save_path = results_dir / "customers.svg"
+    save_path = results_dir / filename
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(save_path)
     plt.close(fig)
