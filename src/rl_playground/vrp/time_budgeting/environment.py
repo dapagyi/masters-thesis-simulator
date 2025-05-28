@@ -50,7 +50,7 @@ class TimeBudgetingEnv(gym.Env):
         # TODO: Define action and observation spaces
 
     def _travel_time(self, from_node: Node, to_node: Node) -> int:
-        return ceil(from_node.distance_to(to_node) / self._vehicle_speed)
+        return max(ceil(from_node.distance_to(to_node) / self._vehicle_speed), 1)
 
     def free_time_budget(self, route: list[Node] | None = None, point_of_time: int | None = None) -> int:
         if route is None:
@@ -142,7 +142,7 @@ class TimeBudgetingEnv(gym.Env):
         # Travel to the first customer and update the route.
         self._route = self._route[1:]  # Remove depot from the route.
         self._last_step_time = 0
-        self._point_of_time = self._travel_time(self._depot, self._route[0]) if self._route else 0
+        self._point_of_time = self._travel_time(self._depot, self._route[0]) if self._route else 1
 
         observation = self._get_obs()
         info = self._get_info()
@@ -183,7 +183,8 @@ class TimeBudgetingEnv(gym.Env):
             point_of_time += 1
         else:
             current_position, route = route[0], route[1:]
-            point_of_time += self._travel_time(current_position, route[0])
+            next_position = route[0]
+            point_of_time += self._travel_time(current_position, next_position)
             left_position = current_position
 
         self._validate_route(route, point_of_time)
