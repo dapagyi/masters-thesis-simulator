@@ -75,11 +75,11 @@ class TimeBudgetingEnv(gym.Env):
                 cluster_std=self._grid_size / 10,
             )
         elif self._dummy_customers:
-            customers, t_max = generate_customers_dummy(
+            customers = generate_customers_dummy(
                 number_of_customers=number_of_customers,
                 grid_size=self._grid_size,
+                t_max=self._t_max,
             )
-            self._t_max = t_max  # Update t_max if using dummy customers
         else:
             customers = generate_customers_uniform(
                 number_of_customers=number_of_customers,

@@ -1,4 +1,5 @@
 import random
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -46,33 +47,33 @@ def generate_customers_uniform(number_of_customers: int, grid_size: int, t_max: 
     ]
 
 
-def generate_customers_dummy(number_of_customers: int, grid_size: int) -> tuple[list[Customer], int]:
-    A = ((grid_size / 2) * (1 - 1 / np.sqrt(2)), (grid_size / 2) * (1 - 1 / np.sqrt(2)))
-    B = ((grid_size / 2) * (1 + 1 / np.sqrt(2)), (grid_size / 2) * (1 + 1 / np.sqrt(2)))
-    t = 5
-    customers: list[Customer] = []
-    for i in range(number_of_customers):
-        dx, dy = np.random.normal(0, 1.5, size=2)
-        if i % 2 == 0:
-            x = A[0] + dx
-            y = A[1] + dy
-        else:
-            x = B[0] + dx
-            y = B[1] + dy
-        customers.append(
-            Customer(
-                node=Node(x=np.clip(x, 0, grid_size), y=np.clip(y, 0, grid_size)),
-                request_time=t,
-            )
-        )
-        t += grid_size + np.random.randint(8, 12)
+def generate_customers_dummy(number_of_customers: int, grid_size: int, t_max: int) -> list[Customer]:
+    a = grid_size / 2
+    dt = int(a / 1)  # Assuming vehicle speed is 1 unit per time step
+    A = (a * (1 - 1 / np.sqrt(2))) * np.ones(2)
+    B = (a * (1 + 1 / np.sqrt(2))) * np.ones(2)
+    A_customer_count = number_of_customers // 3
+    B_customer_count = number_of_customers - A_customer_count
 
-    return customers, t
+    assert t_max - 3.5 * dt > 0
+
+    customers: list[Customer] = []
+    for _ in range(A_customer_count):
+        dx, dy = np.random.normal(0, 1, 2)
+        x, y = np.clip(A[0] + dx, 0, grid_size), np.clip(A[1] + dy, 0, grid_size)
+        customers.append(Customer(node=Node(x=x, y=y), request_time=t_max - int(3.5 * dt) + np.random.randint(-2, 3)))
+
+    for _ in range(B_customer_count):
+        dx, dy = np.random.normal(0, 1, 2)
+        x, y = np.clip(B[0] + dx, 0, grid_size), np.clip(B[1] + dy, 0, grid_size)
+        customers.append(Customer(node=Node(x=x, y=y), request_time=t_max - 3 * dt + np.random.randint(-2, 3)))
+
+    return customers
 
 
 def visualize_customers(
     customers: list[Customer],
-    route: list[Customer] | None = None,
+    route: list[Node] | None = None,
     results_dir: Path = Path("results"),
     filename: str = "customers.png",
 ) -> None:
@@ -90,9 +91,7 @@ def visualize_customers(
         ax.annotate(str(t), (x, y), fontsize=7, alpha=0.6)
 
     if route is not None and len(route) > 1:
-        for i in range(len(route) - 1):
-            start = route[i].node
-            end = route[i + 1].node
+        for start, end in pairwise(route):
             ax.annotate(
                 "",
                 xy=(end.x, end.y),
@@ -127,9 +126,8 @@ if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
     # customers = generate_clustered_customers(40, grid_size=20, t_max=120)
-    customers, t_max = generate_customers_dummy(50, grid_size=20)
-    print(f"Generated {len(customers)} customers with t_max={t_max}.")
-    route = random.sample(customers, 10)
+    customers = generate_customers_dummy(15, grid_size=20, t_max=63)
+    route = [x.node for x in random.sample(customers, 10)]
 
     visualize_customers(customers, route)
     print(f"Generated {len(customers)} customers and saved visualization to 'results/customer_visualization.png'.")
