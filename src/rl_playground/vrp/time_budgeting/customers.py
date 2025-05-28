@@ -46,11 +46,35 @@ def generate_customers_uniform(number_of_customers: int, grid_size: int, t_max: 
     ]
 
 
+def generate_customers_dummy(number_of_customers: int, grid_size: int) -> tuple[list[Customer], int]:
+    A = ((grid_size / 2) * (1 - 1 / np.sqrt(2)), (grid_size / 2) * (1 - 1 / np.sqrt(2)))
+    B = ((grid_size / 2) * (1 + 1 / np.sqrt(2)), (grid_size / 2) * (1 + 1 / np.sqrt(2)))
+    t = 5
+    customers: list[Customer] = []
+    for i in range(number_of_customers):
+        dx, dy = np.random.normal(0, 1.5, size=2)
+        if i % 2 == 0:
+            x = A[0] + dx
+            y = A[1] + dy
+        else:
+            x = B[0] + dx
+            y = B[1] + dy
+        customers.append(
+            Customer(
+                node=Node(x=np.clip(x, 0, grid_size), y=np.clip(y, 0, grid_size)),
+                request_time=t,
+            )
+        )
+        t += grid_size + np.random.randint(8, 12)
+
+    return customers, t
+
+
 def visualize_customers(
     customers: list[Customer],
     route: list[Customer] | None = None,
     results_dir: Path = Path("results"),
-    filename: str = "customers.svg",
+    filename: str = "customers.png",
 ) -> None:
     xs = [customer.node.x for customer in customers]
     ys = [customer.node.y for customer in customers]
@@ -102,7 +126,9 @@ def visualize_customers(
 if __name__ == "__main__":
     random.seed(42)
     np.random.seed(42)
-    customers = generate_clustered_customers(40, grid_size=20, t_max=120)
+    # customers = generate_clustered_customers(40, grid_size=20, t_max=120)
+    customers, t_max = generate_customers_dummy(50, grid_size=20)
+    print(f"Generated {len(customers)} customers with t_max={t_max}.")
     route = random.sample(customers, 10)
 
     visualize_customers(customers, route)

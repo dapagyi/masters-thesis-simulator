@@ -15,7 +15,11 @@ import gymnasium as gym
 import numpy as np
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
-from rl_playground.vrp.time_budgeting.customers import generate_clustered_customers, generate_customers_uniform
+from rl_playground.vrp.time_budgeting.customers import (
+    generate_clustered_customers,
+    generate_customers_dummy,
+    generate_customers_uniform,
+)
 from rl_playground.vrp.time_budgeting.routing import min_insert_heuristic
 
 
@@ -29,6 +33,7 @@ class TimeBudgetingEnv(gym.Env):
         grid_size: int = 20,
         depot: Node | None = None,
         number_of_clusters: int | None = None,
+        dummy_customers: bool | None = None,
     ) -> None:
         super().__init__()
 
@@ -40,6 +45,7 @@ class TimeBudgetingEnv(gym.Env):
         center: int = grid_size // 2
         self._depot = depot if depot else Node(center, center)
         self._number_of_clusters = number_of_clusters
+        self._dummy_customers = dummy_customers
 
         # TODO: Define action and observation spaces
 
@@ -68,6 +74,12 @@ class TimeBudgetingEnv(gym.Env):
                 num_clusters=self._number_of_clusters,
                 cluster_std=self._grid_size / 10,
             )
+        elif self._dummy_customers:
+            customers, t_max = generate_customers_dummy(
+                number_of_customers=number_of_customers,
+                grid_size=self._grid_size,
+            )
+            self._t_max = t_max  # Update t_max if using dummy customers
         else:
             customers = generate_customers_uniform(
                 number_of_customers=number_of_customers,
