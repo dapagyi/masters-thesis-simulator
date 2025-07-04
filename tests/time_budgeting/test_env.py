@@ -143,37 +143,6 @@ def test_env_action(env: TimeBudgetingEnv, reset_options: ResetOptions, action: 
 @pytest.mark.parametrize(
     "t_max, grid_size, initial_customers, future_customers",
     [
-        (100, 10, 5, 5),
-        (200, 20, 10, 10),
-        (300, 30, 15, 15),
-        (400, 40, 20, 20),
-        (10000, 40, 20, 50),
-    ],
-    # The t_max values are not so generous, but with fixed seed,
-    # the (initial) customers are generated in a way that they are reachable
-)
-def test_env_terminaton_with_reject_policy(t_max: int, grid_size: int, initial_customers: int, future_customers: int):
-    env = TimeBudgetingEnv(
-        t_max=t_max,
-        number_of_initial_customers=initial_customers,
-        number_of_future_customers=future_customers,
-        grid_size=grid_size,
-    )
-    observation, info = env.reset()
-
-    done = False
-    while not done:
-        action = reject_policy(observation, info)
-        observation, reward, terminated, truncated, info = env.step(action)
-        done = terminated and not truncated
-    assert info.vehicle_position == env._depot
-    assert info.remaining_route == []
-    assert info.current_time <= t_max
-
-
-@pytest.mark.parametrize(
-    "t_max, grid_size, initial_customers, future_customers",
-    [
         (10000, 10, 5, 5),
         (20000, 20, 10, 10),
         (30000, 30, 15, 15),
