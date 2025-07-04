@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 from rl_playground.vrp.time_budgeting.agent import TabularAgent
+from rl_playground.vrp.time_budgeting.customers.generators import UniformCustomerGenerator
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
 from rl_playground.vrp.time_budgeting.training import save_results_and_plots, train
 
@@ -26,12 +27,6 @@ from rl_playground.vrp.time_budgeting.training import save_results_and_plots, tr
 @click.option(
     "--refinement_episodes", default=200, type=int, help="Number of episodes between value table refinements."
 )
-@click.option(
-    "--number_of_clusters",
-    default=3,
-    type=int,
-    help="Number of customer clusters for generation. If 0 or less, uniform distribution is used.",
-)
 def main(
     episodes: int,
     alpha: float,
@@ -46,26 +41,26 @@ def main(
     results_dir: str,
     neighborhood_size: int,
     refinement_episodes: int,
-    number_of_clusters: int,
 ):
     """Train a Tabular agent on the TimeBudgetingEnv and compare with a greedy agent."""
 
-    env_number_of_clusters = number_of_clusters if number_of_clusters > 0 else None
-
-    env = TimeBudgetingEnv(
-        t_max=t_max,
+    customer_generator = UniformCustomerGenerator(
         number_of_initial_customers=initial_customers,
         number_of_future_customers=future_customers,
         grid_size=grid_size,
-        number_of_clusters=env_number_of_clusters,
+        t_max=t_max,
+    )
+
+    env = TimeBudgetingEnv(
+        customer_generator=customer_generator,
+        t_max=t_max,
+        grid_size=grid_size,
     )
     # Create an identical environment for the greedy agent
     greedy_env = TimeBudgetingEnv(
+        customer_generator=customer_generator,
         t_max=t_max,
-        number_of_initial_customers=initial_customers,
-        number_of_future_customers=future_customers,
         grid_size=grid_size,
-        number_of_clusters=env_number_of_clusters,
     )
     agent = TabularAgent(
         alpha=alpha,

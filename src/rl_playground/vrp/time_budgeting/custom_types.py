@@ -36,9 +36,3 @@ class Action:
     # The paper describes the action as a tuple of accepted customers and the next customer to visit.
     # Since we maintain the route, it is more natural to consider if the vehicle should stay at the current location.
     wait_at_current_location: bool
-
-
-@dataclass
-class ResetOptions:
-    initial_customers: list[Customer]
-    future_customers: list[Customer]

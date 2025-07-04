@@ -14,84 +14,39 @@ from math import ceil
 import gymnasium as gym
 import numpy as np
 
-from rl_playground.vrp.time_budgeting.custom_types import Action, Customer, Info, Node, Observation, ResetOptions
-from rl_playground.vrp.time_budgeting.customers import (
-    generate_clustered_customers,
-    generate_customers_dummy,
-    generate_customers_uniform,
-)
+from rl_playground.vrp.time_budgeting.custom_types import Action, Info, Node, Observation
+from rl_playground.vrp.time_budgeting.customers.generators import CustomerGenerator
 from rl_playground.vrp.time_budgeting.routing import min_insert_heuristic
 
 
 class TimeBudgetingEnv(gym.Env):
     def __init__(
         self,
+        customer_generator: CustomerGenerator,
         t_max: int = 100,
-        vehicle_speed: float = 1.0,
-        number_of_initial_customers: int | None = None,
-        number_of_future_customers: int | None = None,
         grid_size: int = 20,
+        vehicle_speed: float = 1.0,
         depot: Node | None = None,
-        number_of_clusters: int | None = None,
-        dummy_customers: bool | None = None,
     ) -> None:
         super().__init__()
 
+        self._customer_generator = customer_generator
         self._t_max = t_max
         self._vehicle_speed = vehicle_speed
-        self._number_of_initial_customers = number_of_initial_customers
-        self._number_of_future_customers = number_of_future_customers
         self._grid_size = grid_size
-        center: int = grid_size // 2
+        center = grid_size // 2
         self._depot = depot if depot else Node(center, center)
-        self._number_of_clusters = number_of_clusters
-        self._dummy_customers = dummy_customers
-
-        # TODO: Define action and observation spaces
 
     def _travel_time(self, from_node: Node, to_node: Node) -> int:
         return max(ceil(from_node.distance_to(to_node) / self._vehicle_speed), 1)
 
-    def free_time_budget(self, route: list[Node] | None = None, point_of_time: int | None = None) -> int:
-        if route is None:
-            route = self._route
-        if point_of_time is None:
-            point_of_time = self._point_of_time
-
+    def free_time_budget(self, route: list[Node], point_of_time: int) -> int:
         route_time = sum(self._travel_time(u, v) for u, v in pairwise(route))
         return self._t_max - point_of_time - route_time
 
-    def _validate_route(self, route: list[Node] | None = None, point_of_time: int | None = None):
+    def _validate_route(self, route: list[Node], point_of_time: int):
         if self.free_time_budget(route, point_of_time) < 0:
             raise ValueError("Route exceeds maximum travel time")
-
-    def _generate_customers(self, number_of_customers, initial: bool) -> list[Customer]:
-        if self._number_of_clusters:
-            customers = generate_clustered_customers(
-                number_of_customers=number_of_customers,
-                grid_size=self._grid_size,
-                t_max=self._t_max,
-                num_clusters=self._number_of_clusters,
-                cluster_std=self._grid_size / 10,
-            )
-        elif self._dummy_customers:
-            customers = generate_customers_dummy(
-                number_of_customers=number_of_customers,
-                grid_size=self._grid_size,
-                t_max=self._t_max,
-            )
-        else:
-            customers = generate_customers_uniform(
-                number_of_customers=number_of_customers,
-                grid_size=self._grid_size,
-                t_max=self._t_max,
-            )
-
-        if initial:
-            for customer in customers:
-                customer.request_time = 0
-
-        return sorted(customers, key=lambda x: x.request_time)
 
     def _remove_processed_customers(self) -> None:
         # Remove customers that have already been processed (either accepted or rejected)
@@ -113,7 +68,7 @@ class TimeBudgetingEnv(gym.Env):
         """Checks if the environment is done, i.e., no more customers and at depot."""
         return len(self._route) == 1 and not self._future_customers
 
-    def reset(self, seed: int | None = None, options: ResetOptions | None = None) -> tuple[Observation, Info]:  # type: ignore
+    def reset(self, seed: int | None = None) -> tuple[Observation, Info]:  # type: ignore
         super().reset(seed=seed)
         np.random.seed(seed)
 
@@ -121,23 +76,15 @@ class TimeBudgetingEnv(gym.Env):
         self._route: list[Node] = [self._depot, self._depot]  # Start and end at the depot
         self._final_route: list[Node] = [self._depot]
 
-        if options:
-            self._number_of_initial_customers = len(options.initial_customers)
-            self._number_of_future_customers = len(options.future_customers)
-            initial_customers = options.initial_customers
-            self._future_customers = options.future_customers
-        else:
-            if self._number_of_initial_customers is None or self._number_of_future_customers is None:
-                raise ValueError("Number of initial and future customers must be provided")
-            initial_customers = self._generate_customers(self._number_of_initial_customers, initial=True)
-            self._future_customers = self._generate_customers(self._number_of_future_customers, initial=False)
-
+        self._customer_generator.reset()
+        initial_customers = self._customer_generator.initial_customers
+        self._future_customers = self._customer_generator.future_customers
         self._route = min_insert_heuristic(
             route=self._route,
             nodes=[customer.node for customer in initial_customers],
             travel_time=self._travel_time,
         )
-        self._validate_route()
+        self._validate_route(self._route, self._point_of_time)
 
         # Travel to the first customer and update the route.
         self._route = self._route[1:]  # Remove depot from the route.
@@ -151,10 +98,12 @@ class TimeBudgetingEnv(gym.Env):
 
     def step(self, action: Action):  # type: ignore
         self._last_step_time = self._point_of_time
+
         self._route, self._point_of_time, left_position = self.calculate_post_decison_state(action)
         if left_position:
             self._final_route.append(left_position)
         self._remove_processed_customers()
+
         observation = self._get_obs()
         reward = len(action.accepted_customers)
         terminated = self.is_done
@@ -191,7 +140,7 @@ class TimeBudgetingEnv(gym.Env):
         return route, point_of_time, left_position
 
     def _get_obs(self) -> Observation:
-        return (self._point_of_time, self.free_time_budget())
+        return (self._point_of_time, self.free_time_budget(self._route, self._point_of_time))
 
     def _get_info(self) -> Info:
         # Take only the customers that are new in this step.
