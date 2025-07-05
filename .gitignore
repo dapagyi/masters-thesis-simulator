@@ -1,4 +1,6 @@
 results/
+tmp/
+mlruns/
 
 # Created by https://gitignore.org
 # Python.gitignore

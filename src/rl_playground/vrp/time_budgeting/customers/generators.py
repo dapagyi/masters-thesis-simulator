@@ -6,7 +6,7 @@ import numpy as np
 from rl_playground.vrp.time_budgeting.custom_types import Customer, Node
 
 
-@dataclass()
+@dataclass
 class CustomerGenerator(ABC):
     """
     Abstract base class for generating customers.
@@ -29,11 +29,11 @@ class CustomerGenerator(ABC):
         self._future_customers: list[Customer] = []
 
     @abstractmethod
-    def reset(self):
+    def reset(self) -> None:
         pass
 
 
-@dataclass()
+@dataclass
 class UniformCustomerGenerator(CustomerGenerator):
     number_of_initial_customers: int
     number_of_future_customers: int

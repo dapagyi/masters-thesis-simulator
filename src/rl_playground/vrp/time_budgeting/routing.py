@@ -11,13 +11,14 @@ def min_insert_heuristic(route: list[Node], nodes: list[Node], travel_time: Call
     The first and last nodes of the route remain unchanged.
     """
     route = route.copy()
+    assert len(route) >= 2, "Route must have at least two nodes (start and end)."
 
     for node in nodes:
         best_position = None
         min_total_time = float("inf")
 
         for i in range(1, len(route)):
-            new_route = route[:i] + [node] + route[i:]
+            new_route = [*route[:i], node, *route[i:]]
             total_time = sum(travel_time(u, v) for u, v in pairwise(new_route))
             if total_time < min_total_time:
                 min_total_time = total_time
