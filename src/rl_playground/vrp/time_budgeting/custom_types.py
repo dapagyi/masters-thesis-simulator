@@ -2,16 +2,19 @@ from dataclasses import dataclass
 from math import sqrt
 
 
-@dataclass
+@dataclass(frozen=True)
 class Node:
     x: float
     y: float
+
+    def __hash__(self):
+        return id(self)
 
     def distance_to(self, other: "Node") -> float:
         return sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Customer:
     node: Node
     request_time: int = 0

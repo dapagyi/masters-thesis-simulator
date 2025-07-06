@@ -14,11 +14,11 @@ class CustomerGenerator(ABC):
 
     @property
     def initial_customers(self) -> list[Customer]:
-        return self._initial_customers
+        return self._initial_customers[:]
 
     @property
     def future_customers(self) -> list[Customer]:
-        return self._future_customers
+        return self._future_customers[:]
 
     @property
     def all_customers(self) -> list[Customer]:
