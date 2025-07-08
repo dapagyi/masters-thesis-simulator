@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 VEHICLE_SPEED = 1.0
 
 
-def get_test_generator() -> CustomerGenerator:
-    class TestGenerator(CustomerGenerator):
+def get_test_customer_generator() -> CustomerGenerator:
+    class TestCustomerGenerator(CustomerGenerator):
         def reset(self):
             self._initial_customers = [
                 Customer(Node(9, 5), request_time=0),
@@ -31,27 +31,36 @@ def get_test_generator() -> CustomerGenerator:
                 Customer(Node(3, 5), request_time=17),
             ]
 
-    generator = TestGenerator()
-    return generator
+    customer_generator = TestCustomerGenerator()
+    return customer_generator
 
 
-def get_generator(
+def get_customer_generator(
     t_max: int, grid_size: int, number_of_initial_customers: int, number_of_future_customers: int, seed: int
 ) -> CustomerGenerator:
     random.seed(seed)
     np.random.seed(seed)
 
-    generator = UniformCustomerGenerator(
+    customer_generator = UniformCustomerGenerator(
         number_of_initial_customers=number_of_initial_customers,
         number_of_future_customers=number_of_future_customers,
         grid_size=grid_size,
         t_max=t_max,
     )
-    return generator
+    return customer_generator
 
 
 def print_solution_summary(
-    v_0: Customer, v_0_: Customer, customers: list[Customer], V: list[Customer], model, s, t, x, y
+    v_0: Customer,
+    v_0_: Customer,
+    customers: list[Customer],
+    customer_generator: CustomerGenerator,
+    V: list[Customer],
+    model,
+    s,
+    t,
+    x,
+    y,
 ):
     logger.info(f"Status: {model.status}, Objective = {model.objective.value()}")  # type: ignore
 
@@ -73,7 +82,7 @@ def print_solution_summary(
 
     route = [node.node for node in route]
     logger.info(f"Route: {', '.join([f'({node.x}, {node.y})' for node in route])}")
-    log_customers(customers, v_0.node, route)
+    log_customers(customer_generator, v_0.node, route)
 
     logger.info(f"Objective value: {model.objective.value()}")
     mlflow.log_metric("objective_value", model.objective.value())
@@ -90,8 +99,8 @@ def main(t_max=32, grid_size=6, number_of_initial_customers=2, number_of_future_
             "mlflow.note.content": "Offline solver for the time budgeting environment.",
         })
 
-        generator = (
-            get_generator(
+        customer_generator = (
+            get_customer_generator(
                 t_max=t_max,
                 grid_size=grid_size,
                 number_of_initial_customers=number_of_initial_customers,
@@ -99,36 +108,36 @@ def main(t_max=32, grid_size=6, number_of_initial_customers=2, number_of_future_
                 seed=seed,
             )
             if not test
-            else get_test_generator()
+            else get_test_customer_generator()
         )
-        generator.reset()
+        customer_generator.reset()
 
         mlflow.log_params({
             "t_max": t_max,
             "grid_size": grid_size,
-            "number_of_initial_customers": len(generator.initial_customers),
-            "number_of_future_customers": len(generator.future_customers),
+            "number_of_initial_customers": len(customer_generator.initial_customers),
+            "number_of_future_customers": len(customer_generator.future_customers),
             "seed": seed,
         })
 
-        for i, customer in enumerate(generator.all_customers):
+        for i, customer in enumerate(customer_generator.all_customers):
             logger.info(
                 f"{i}: {customer}, distance from depot: "
                 f"{ceil(customer.node.distance_to(Node(grid_size // 2, grid_size // 2)))}"
             )
 
-        v_0, v_0_, customers, V, model, s, t, x, y = solver(t_max, grid_size, generator)
+        v_0, v_0_, customers, V, model, s, t, x, y = solver(t_max, grid_size, customer_generator)
 
-        print_solution_summary(v_0, v_0_, customers, V, model, s, t, x, y)
+        print_solution_summary(v_0, v_0_, customers, customer_generator, V, model, s, t, x, y)
         upload_log_to_mlflow(log_file_path)
 
 
-def solver(t_max: int, grid_size: int, generator: CustomerGenerator) -> tuple:
+def solver(t_max: int, grid_size: int, customer_generator: CustomerGenerator) -> tuple:
     v_0 = Customer(Node(grid_size // 2, grid_size // 2), request_time=0)
     v_0_ = Customer(Node(grid_size // 2, grid_size // 2), request_time=0)
 
-    V_0 = generator.initial_customers
-    V_1 = generator.future_customers
+    V_0 = customer_generator.initial_customers
+    V_1 = customer_generator.future_customers
     customers = V_0 + V_1
     V = [*customers, v_0, v_0_]
 

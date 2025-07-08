@@ -8,7 +8,12 @@ import numpy as np
 from dotenv import load_dotenv
 
 from rl_playground.vrp.time_budgeting.custom_types import Customer, Node
-from rl_playground.vrp.time_budgeting.customers.generators import UniformCustomerGenerator
+from rl_playground.vrp.time_budgeting.customers.generators import (
+    Cluster,
+    ClusteredCustomerGenerator,
+    CustomerGenerator,
+    UniformCustomerGenerator,
+)
 
 # REL_PATH = "customers"
 REL_PATH = "."
@@ -48,7 +53,7 @@ def plot_2d_histogram(
     ax.set_title("2D Histogram of Customer Locations")
     plt.close(fig)
 
-    artifact_path = artifact_dir_path / REL_PATH / "2d_histogram.svg"
+    artifact_path = artifact_dir_path / REL_PATH / "customer_2d_histogram.svg"
     mlflow.log_figure(fig, str(artifact_path))
 
 
@@ -92,20 +97,61 @@ def plot_locations(
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     plt.close(fig)
 
-    artifact_path = artifact_dir_path / REL_PATH / "locations_with_request_times.svg"
+    artifact_path = artifact_dir_path / REL_PATH / "customer_locations.svg"
+    mlflow.log_figure(fig, str(artifact_path))
+
+
+def plot_customer_clusters(
+    customer_clusters: list[list[Customer]],
+    clusters: list[Cluster],
+    artifact_dir_path: Path = Path(),
+) -> None:
+    fig, ax = plt.subplots(figsize=(10, 8))
+    for i, cluster in enumerate(customer_clusters):
+        xs = [customer.request_time for customer in cluster]
+        ys = [i] * len(xs)
+        ax.scatter(xs, ys, label=f"Cluster {i + 1} ({len(cluster)} customers)", alpha=0.6)
+
+    ax.set_yticks(range(len(customer_clusters)))
+    ax.set_yticklabels(
+        [
+            f"Cluster {i + 1}\n({clusters[i].center.x:.1f}, {clusters[i].center.y:.1f})"
+            for i in range(len(customer_clusters))
+        ],
+        ha="center",
+    )
+    ax.tick_params(axis="y", pad=35)
+    ax.set_ylim(bottom=-0.5, top=len(customer_clusters) - 0.5)
+    ax.set_xticks(
+        np.arange(0, max(customer.request_time for cluster in customer_clusters for customer in cluster) + 1, step=5)
+    )
+    ax.set_xticklabels(
+        np.arange(0, max(customer.request_time for cluster in customer_clusters for customer in cluster) + 1, step=5),
+    )
+    ax.set_xlabel("Request Time")
+    ax.set_title("Customer Clusters by Request Time")
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0.0)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    plt.close(fig)
+
+    artifact_path = artifact_dir_path / REL_PATH / "customer_clusters.svg"
     mlflow.log_figure(fig, str(artifact_path))
 
 
 def log_customers(
-    customers: list[Customer],
+    customer_generator: CustomerGenerator,
     depot: Node,
     route: list[Node] | None = None,
     artifact_dir_path: Path = Path(),
     bins: int = 16,
 ) -> None:
-    log_customers_csv(customers, artifact_dir_path)
-    plot_2d_histogram(customers, bins, artifact_dir_path)
-    plot_locations(customers, depot, route, artifact_dir_path=artifact_dir_path)
+    log_customers_csv(customer_generator.all_customers, artifact_dir_path)
+    plot_2d_histogram(customer_generator.all_customers, bins, artifact_dir_path)
+    plot_locations(customer_generator.all_customers, depot, route, artifact_dir_path)
+    if isinstance(customer_generator, ClusteredCustomerGenerator):
+        plot_customer_clusters(customer_generator.customer_clusters, customer_generator.clusters, artifact_dir_path)
 
 
 if __name__ == "__main__":
@@ -124,8 +170,17 @@ if __name__ == "__main__":
             grid_size=grid_size,
             t_max=63,
         )
-        depot = Node(x=grid_size // 2, y=grid_size // 2)
+
+        t_max = 30
+        customer_generator = ClusteredCustomerGenerator(
+            clusters=[
+                Cluster(Node(x=5, y=15), 5, grid_size, 5, initial=True),
+                Cluster(Node(x=5, y=15), 4, grid_size, 25, t_min=0, t_max=t_max),
+                Cluster(Node(x=16, y=12), 2, grid_size, 10, t_min=t_max // 2, t_max=t_max),
+            ]
+        )
+        depot = Node(x=grid_size // 4, y=grid_size // 4)
         customer_generator.reset()
         route = random.sample(customer_generator.all_customers, 10)
         route = [customer.node for customer in route]
-        log_customers(customer_generator.all_customers, depot, route)
+        log_customers(customer_generator, depot, route)
