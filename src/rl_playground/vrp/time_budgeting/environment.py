@@ -65,8 +65,7 @@ class TimeBudgetingEnv(gym.Env):
 
     @property
     def is_done(self) -> bool:
-        """Checks if the environment is done, i.e., no more customers and at depot."""
-        return len(self._route) == 1 and not self._future_customers
+        return (len(self._route) == 1 and not self._future_customers) or self._point_of_time == self._t_max
 
     def reset(self, seed: int | None = None) -> tuple[Observation, Info]:  # type: ignore
         super().reset(seed=seed)
@@ -77,8 +76,8 @@ class TimeBudgetingEnv(gym.Env):
         self._final_route: list[Node] = [self._depot]
 
         self._customer_generator.reset()
-        initial_customers = self._customer_generator.initial_customers
-        self._future_customers = self._customer_generator.future_customers
+        initial_customers = sorted(self._customer_generator.initial_customers, key=lambda c: c.request_time)
+        self._future_customers = sorted(self._customer_generator.future_customers, key=lambda c: c.request_time)
         self._route = min_insert_heuristic(
             route=self._route,
             nodes=[customer.node for customer in initial_customers],
