@@ -3,6 +3,7 @@ from itertools import combinations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import mlflow
 import numpy as np
 
 from rl_playground.vrp.time_budgeting.custom_types import Action, Info, Observation
@@ -158,7 +159,7 @@ class TabularAgent:
             + f"({self.scaled_t_max + 1}x{self.scaled_t_max + 1})"
         )
 
-    def save_value_table_heatmap(self, results_dir: Path, filename: str = "value_heatmap.png") -> None:
+    def save_value_table_heatmap(self, results_dir: Path, filename: str, artifact_file_path: Path) -> None:
         """Saves a heatmap of the agent's value table."""
         heatmap_save_path = results_dir / filename
         fig, ax = plt.subplots(figsize=(10, 8), dpi=144)
@@ -169,4 +170,5 @@ class TabularAgent:
         ax.set_ylabel(f"Scaled Point of Time (/{self.scale_factor})")
         ax.set_title(f"Value Table Heatmap (t_max={self.t_max}, scale={self.scale_factor})")
         fig.savefig(heatmap_save_path)
+        mlflow.log_figure(fig, artifact_file=str(artifact_file_path))
         plt.close(fig)

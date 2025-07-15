@@ -1,20 +1,14 @@
 from pathlib import Path
 
+import mlflow
 import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import trange
 
 from rl_playground.vrp.time_budgeting.agent import TabularAgent
+from rl_playground.vrp.time_budgeting.customers.customer_logging import log_customers
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
 from rl_playground.vrp.time_budgeting.policies import greedy_policy
-
-
-def save_value_table_heatmap(
-    agent: TabularAgent, results_dir: Path = Path("./results"), filename: str = "value_heatmap.png"
-):
-    """Saves a heatmap of the agent's value table."""
-    results_dir.mkdir(parents=True, exist_ok=True)
-    agent.save_value_table_heatmap(results_dir, filename=filename)
 
 
 def save_rewards_plot(
@@ -80,6 +74,7 @@ def train(
             observation = next_observation
             rl_episode_reward += reward
         rl_rewards_per_episode.append(rl_episode_reward)
+        mlflow.log_metric("rl_episode_reward", rl_episode_reward, step=episode)
 
         # Greedy Agent Run
         greedy_observation, greedy_info = greedy_env.reset(seed=episode_seed)
@@ -97,19 +92,32 @@ def train(
             ) = greedy_env.step(greedy_action)
             greedy_episode_reward += greedy_step_reward
         greedy_rewards_per_episode.append(greedy_episode_reward)
+        mlflow.log_metric("greedy_episode_reward", greedy_episode_reward, step=episode)
 
-        if (episode + 1) % 100 == 0:
-            avg_rl_reward = np.mean(rl_rewards_per_episode[-100:])
-            avg_greedy_reward = np.mean(greedy_rewards_per_episode[-100:])
+        if (episode + 1) % refinement_interval == 0:
+            avg_rl_reward = np.mean(rl_rewards_per_episode[-refinement_interval:])
+            avg_greedy_reward = np.mean(greedy_rewards_per_episode[-refinement_interval:])
             pb.write(
-                f"Episode {episode + 1}/{episodes}, Avg RL Reward (last 100): {avg_rl_reward:.2f}, "
-                f"Avg Greedy Reward (last 100): {avg_greedy_reward:.2f}"
+                f"Episode {episode + 1}/{episodes}, Avg RL Reward (last {refinement_interval}): {avg_rl_reward:.2f}, "
+                f"Avg Greedy Reward (last {refinement_interval}): {avg_greedy_reward:.2f}"
+            )
+            agent.epsilon -= 0.15
+            log_customers(env._customer_generator, env._depot, env.final_route, Path(".") / "RL" / str(episode + 1))
+            log_customers(
+                greedy_env._customer_generator,
+                greedy_env._depot,
+                greedy_env.final_route,
+                Path(".") / "Greedy" / str(episode + 1),
             )
 
         # Refinement and heatmap saving logic
         if refinement_interval > 0 and (episode + 1) % refinement_interval == 0 and (episode + 1) < episodes:
             heatmap_filename = f"value_heatmap_episode_{episode + 1}.png"
-            save_value_table_heatmap(agent, results_dir, filename=heatmap_filename)
+            agent.save_value_table_heatmap(
+                results_dir,
+                filename=heatmap_filename,
+                artifact_file_path=Path(".") / "RL" / str(episode + 1) / heatmap_filename,
+            )
             pb.write(f"Saved heatmap to {results_dir / heatmap_filename}")
             if agent.scale_factor > 1:  # Check if refinement is possible
                 agent.refine_value_table()
@@ -125,7 +133,9 @@ def save_results_and_plots(
     results_dir: Path = Path("./results"),
 ):
     results_dir.mkdir(parents=True, exist_ok=True)
-    save_value_table_heatmap(agent, results_dir, filename="value_heatmap_final.png")
+    agent.save_value_table_heatmap(
+        results_dir, filename="value_heatmap_final.png", artifact_file_path=Path(".") / "RL" / "value_heatmap_final.png"
+    )
     save_rewards_plot(
         rl_rewards_per_episode, greedy_rewards_per_episode, results_dir, filename="rewards_comparison_final.png"
     )

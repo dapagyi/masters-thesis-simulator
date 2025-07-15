@@ -163,7 +163,7 @@ if __name__ == "__main__":
         mlflow.set_tag("dev", True)
         mlflow.set_tag("run_type", "customer_generation")
 
-        grid_size = 20
+        grid_size = 25
         customer_generator = UniformCustomerGenerator(
             number_of_initial_customers=10,
             number_of_future_customers=50,
@@ -174,12 +174,12 @@ if __name__ == "__main__":
         t_max = 30
         customer_generator = ClusteredCustomerGenerator(
             clusters=[
-                Cluster(Node(x=5, y=15), 5, grid_size, 5, initial=True),
-                Cluster(Node(x=5, y=15), 4, grid_size, 25, t_min=0, t_max=t_max),
-                Cluster(Node(x=16, y=12), 2, grid_size, 10, t_min=t_max // 2, t_max=t_max),
+                Cluster(Node(x=5, y=5), 3, grid_size, 5, initial=True),
+                Cluster(Node(x=5, y=5), 3, grid_size, 25, t_min=0, t_max=t_max),
+                Cluster(Node(x=20, y=20), 3, grid_size, 10, t_min=t_max // 2, t_max=t_max),
             ]
         )
-        depot = Node(x=grid_size // 4, y=grid_size // 4)
+        depot = Node(x=22, y=3)
         customer_generator.reset()
         route = random.sample(customer_generator.all_customers, 10)
         route = [customer.node for customer in route]
