@@ -29,6 +29,7 @@ class Info:
     vehicle_position: Node
     remaining_route: list[Node]
     new_customers: list[Customer]
+    all_arrived_customer_nodes_so_far: list[Node]
 
 
 @dataclass

@@ -1,6 +1,15 @@
 from itertools import combinations
 
-from rl_playground.vrp.time_budgeting.custom_types import Action, Info, Observation
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import ParameterGrid
+from tqdm import tqdm
+
+from rl_playground.vrp.time_budgeting.custom_types import Action, Info, Node, Observation
+from rl_playground.vrp.time_budgeting.customers.generators import (
+    Cluster,
+    ClusteredCustomerGenerator,
+)
 from rl_playground.vrp.time_budgeting.environment import TimeBudgetingEnv
 
 go_action = Action(
@@ -36,3 +45,183 @@ def greedy_policy(observation: Observation, info: Info, env: TimeBudgetingEnv) -
                 continue
 
     raise ValueError("No valid action found.")
+
+
+def modified_objective_function_policy(
+    observation: Observation, info: Info, env: TimeBudgetingEnv, weights: np.ndarray | None = None
+) -> Action:
+    if weights is None:
+        weights = np.array([3.0, 1.0, 1.0])
+
+    progress = info.current_time / env.t_max
+    adjusted_weights = weights * np.array([progress, 1 - progress, 1 - progress])
+
+    def _calculate_objective_value_components(
+        action: Action, planned_route: list[Node], point_of_time: int
+    ) -> np.ndarray:
+        true_objective_value = len(action.accepted_customers) / len(info.new_customers) if info.new_customers else 0
+        free_time_budget = env.free_time_budget(route=planned_route, point_of_time=point_of_time) / env.t_max
+        spatial_factor = -(
+            sum(
+                sum(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
+                / (
+                    max(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
+                    * len(info.all_arrived_customer_nodes_so_far)
+                )
+                for u in planned_route
+            )
+            / len(planned_route)
+            if planned_route
+            else 0
+        )
+        return np.array([true_objective_value, free_time_budget, spatial_factor])
+
+    best_action = None
+    _best_action_objective_components = None
+    best_action_value = None
+
+    for i in range(len(info.new_customers) + 1):
+        for accepted_customer_tuple in combinations(info.new_customers, i):
+            accepted_customers = list(accepted_customer_tuple)
+            for wait_at_current_location in [True, False]:
+                action = Action(
+                    accepted_customers=accepted_customers,
+                    wait_at_current_location=wait_at_current_location,
+                )
+                try:
+                    # Check if the action is valid. Invalid actions will raise a ValueError.
+                    planned_route, point_of_time, _ = env.calculate_post_decison_state(action)
+
+                    comps = _calculate_objective_value_components(action, planned_route, point_of_time)
+                    value = np.sum(adjusted_weights * comps)
+
+                    if best_action is None or value > best_action_value:
+                        best_action = action
+                        _best_action_objective_components = comps
+                        best_action_value = value
+
+                except ValueError:
+                    # Action is invalid
+                    continue
+
+    # Choose the action with the best (lowest) cost
+    if not best_action:
+        raise ValueError("No valid action found.")
+
+    # print("Best action found:")
+    # if info.new_customers:
+    #     print(f"{best_action=}, {best_action_objective_components=}, {adjusted_weights=}, {best_action_value=}")
+
+    return best_action
+
+
+def run_experiment(weights, seed):
+    t_max = 31
+    grid_size = 20
+    initial_customers = 2
+    future_customers_cluster_1 = 13
+    future_customers_cluster_2 = 10
+    future_customers_cluster_3 = 5
+
+    # future_customers_cluster_1 = 18
+    # future_customers_cluster_2 = 10
+    # future_customers_cluster_3 = 10
+
+    customer_generator = ClusteredCustomerGenerator(
+        clusters=[
+            Cluster(Node(x=5, y=5), 1.5, grid_size, initial_customers, initial=True),
+            Cluster(Node(x=5, y=5), 1.5, grid_size, future_customers_cluster_1, t_min=t_max // 4, t_max=3 * t_max // 4),
+            Cluster(Node(x=12, y=12), 1.5, grid_size, future_customers_cluster_2, t_min=0, t_max=t_max // 2),
+            Cluster(Node(x=11, y=6), 1.5, grid_size, future_customers_cluster_3, t_min=0, t_max=t_max),
+        ]
+    )
+
+    env = TimeBudgetingEnv(
+        customer_generator=customer_generator,
+        t_max=t_max,
+        grid_size=20,
+    )
+    greedy_env = TimeBudgetingEnv(
+        customer_generator=customer_generator,
+        t_max=t_max,
+        grid_size=20,
+    )
+
+    observation, info = env.reset(seed=seed)
+
+    terminated = False
+    truncated = False
+    total_reward = 0
+    while not terminated and not truncated:
+        action = modified_objective_function_policy(observation, info, env, weights)
+        next_observation, reward, terminated, truncated, info = env.step(action)
+        observation = next_observation
+        total_reward += reward
+        # print(f"Location: {info.vehicle_position}, ")
+
+    # Greedy policy
+    observation, info = greedy_env.reset(seed=seed)
+
+    terminated = False
+    truncated = False
+    greedy_total_reward = 0
+    while not terminated and not truncated:
+        action = greedy_policy(observation, info, greedy_env)
+        next_observation, reward, terminated, truncated, info = greedy_env.step(action)
+        observation = next_observation
+        greedy_total_reward += reward
+
+    print(f"Episode reward: {total_reward}")
+    print(f"Greedy episode reward: {greedy_total_reward}")
+
+    return (total_reward, greedy_total_reward)
+
+
+if __name__ == "__main__":
+    grid = ParameterGrid({
+        "a": [1],
+        "b": [0, 1 / 4, 1 / 2, 1, 2, 4],
+        "c": [0, 1 / 4, 1 / 2, 1, 2, 4],
+    })
+    runs_per_param_comb = 10
+
+    seed = 4200
+    results = []
+    for params in tqdm(grid):
+        a, b, c = params["a"], params["b"], params["c"]
+        weights = np.array([a, b, c])
+
+        for _ in range(runs_per_param_comb):
+            reward, greedy_reward = run_experiment(weights, seed=seed)
+            results.append((seed, a, b, c, reward, greedy_reward))
+            seed += 1
+
+    # Write results to csv using pandas
+    df = pd.DataFrame(results, columns=["seed", "a", "b", "c", "reward", "greedy_reward"])
+    df.to_csv("experiment_results.csv", index=False)
+
+    # For each param comb calc the number of times the reward is larger than the greedy reward
+    df["better_than_greedy"] = df["reward"] > df["greedy_reward"]
+    better_counts = df.groupby(["a", "b", "c"])["better_than_greedy"].sum().reset_index()
+    better_counts.rename(columns={"better_than_greedy": "count"}, inplace=True)
+    # Save the better counts to a csv
+    better_counts.to_csv("better_counts.csv", index=False)
+
+    # Also add a column for AT LEAST as good:
+    df["at_least_as_good"] = df["reward"] >= df["greedy_reward"]
+    at_least_counts = df.groupby(["a", "b", "c"])["at_least_as_good"].sum().reset_index()
+    at_least_counts.rename(columns={"at_least_as_good": "count"}, inplace=True)
+    at_least_counts.to_csv("at_least_counts.csv", index=False)
+
+    # Plot it using matplotlib's OOP interface
+    # import matplotlib.pyplot as plt
+
+    # fig, ax = plt.subplots()
+    # for key, grp in better_counts.groupby(["a", "b", "c"]):
+    #     ax.bar(key, grp["count"], label=f"a={key[0]}, b={key[1]}, c={key[2]}")
+    # ax.set_xlabel("Parameter Combination")
+    # ax.set_ylabel("Count")
+    # ax.set_title("Number of Times Reward > Greedy Reward")
+    # ax.legend()
+    # plt.savefig("better_counts.png")
+    # plt.show()

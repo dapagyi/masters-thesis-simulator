@@ -15,19 +15,17 @@ from rl_playground.vrp.time_budgeting.training import save_results_and_plots, tr
 
 
 @click.command()
-@click.option("--episodes", default=1000, help="Number of episodes to run.")
+@click.option("--episodes", default=200, help="Number of episodes to run.")
 @click.option("--alpha", default=0.2, help="Learning rate for the agent.")
-@click.option("--epsilon", default=0.2, help="Epsilon for epsilon-greedy policy.")
-@click.option("--gamma", default=0.995, help="Discount factor for future rewards.")
-@click.option("--seed", type=int, default=1000, help="Random seed for reproducibility.")
+@click.option("--epsilon", default=0.4, help="Epsilon for epsilon-greedy policy.")
+@click.option("--gamma", default=0.999, help="Discount factor for future rewards.")
+@click.option("--seed", type=int, default=0, help="Random seed for reproducibility.")
 @click.option(
-    "--initial_scale_factor", default=16, help="Initial scale factor for discretizing state space in TabularAgent."
+    "--initial_scale_factor", default=8, help="Initial scale factor for discretizing state space in TabularAgent."
 )
 @click.option("--results_dir", default="./tmp", type=str, help="Directory to save plots.")
 @click.option("--neighborhood_size", default=3, type=int, help="Neighborhood size for get_value in TabularAgent.")
-@click.option(
-    "--refinement_episodes", default=200, type=int, help="Number of episodes between value table refinements."
-)
+@click.option("--refinement_episodes", default=50, type=int, help="Number of episodes between value table refinements.")
 def main(
     episodes: int,
     alpha: float,
@@ -51,7 +49,8 @@ def main(
         grid_size = 20
         initial_customers = 2
         future_customers_cluster_1 = 23
-        future_customers_cluster_2 = 5
+        future_customers_cluster_2 = 10
+        future_customers_cluster_3 = 5
 
         customer_generator = ClusteredCustomerGenerator(
             clusters=[
@@ -59,7 +58,8 @@ def main(
                 Cluster(
                     Node(x=5, y=5), 1.5, grid_size, future_customers_cluster_1, t_min=t_max // 4, t_max=3 * t_max // 4
                 ),
-                Cluster(Node(x=12, y=12), 1.5, grid_size, future_customers_cluster_2, t_min=0, t_max=t_max // 4),
+                Cluster(Node(x=12, y=12), 1.5, grid_size, future_customers_cluster_2, t_min=0, t_max=t_max // 2),
+                Cluster(Node(x=11, y=6), 1.5, grid_size, future_customers_cluster_3, t_min=0, t_max=t_max),
             ]
         )
         depot = Node(x=10, y=10)

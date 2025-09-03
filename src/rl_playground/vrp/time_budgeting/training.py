@@ -110,6 +110,10 @@ def train(
                 Path(".") / "Greedy" / str(episode + 1),
             )
 
+        if (episode + 1) % 10 == 0:
+            agent.epsilon = max(0.02, agent.epsilon * 0.8)
+            mlflow.log_metric("epsilon", agent.epsilon, step=episode)
+
         # Refinement and heatmap saving logic
         if refinement_interval > 0 and (episode + 1) % refinement_interval == 0 and (episode + 1) < episodes:
             heatmap_filename = f"value_heatmap_episode_{episode + 1}.png"

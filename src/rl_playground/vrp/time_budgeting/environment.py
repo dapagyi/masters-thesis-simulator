@@ -58,6 +58,10 @@ class TimeBudgetingEnv(gym.Env):
         )
 
     @property
+    def t_max(self) -> int:
+        return self._t_max
+
+    @property
     def final_route(self) -> list[Node]:
         """Returns the final route after all customers have been processed."""
         assert self.is_done
@@ -84,6 +88,7 @@ class TimeBudgetingEnv(gym.Env):
             travel_time=self._travel_time,
         )
         self._validate_route(self._route, self._point_of_time)
+        self._all_arrived_customer_nodes_so_far = [customer.node for customer in initial_customers]
 
         # Travel to the first customer and update the route.
         self._route = self._route[1:]  # Remove depot from the route.
@@ -108,6 +113,8 @@ class TimeBudgetingEnv(gym.Env):
         terminated = self.is_done
         truncated = False
         info = self._get_info()
+
+        self._all_arrived_customer_nodes_so_far.extend([customer.node for customer in info.new_customers])
 
         return observation, reward, terminated, truncated, info
 
@@ -154,4 +161,5 @@ class TimeBudgetingEnv(gym.Env):
             vehicle_position=self._route[0],
             remaining_route=self._route[1:],  # Exclude current position
             new_customers=new_customers_in_current_step,
+            all_arrived_customer_nodes_so_far=self._all_arrived_customer_nodes_so_far,
         )

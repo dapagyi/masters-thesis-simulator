@@ -131,6 +131,9 @@ class TabularAgent:
 
         assert self.scale_factor // 2 >= 1, "Scale factor cannot be reduced to less than 1."
 
+        # EPSILON DECAY: Reduce epsilon to encourage exploitation
+        # self.epsilon = max(0.01, self.epsilon - 0.15)
+
         old_scale_factor = self.scale_factor
         old_scaled_t_max = self.scaled_t_max
         old_value_table = self.value_table.copy()
