@@ -88,8 +88,9 @@ def modified_objective_function_policy(  # noqa: C901
         spatial_factor = 0
 
         for route_node, closest_customers in closest_customers_per_route_node.items():
+            max_dist = max(route_node.distance_to(v) ** 2 for v in closest_customers)
             spatial_factor += sum(route_node.distance_to(c) ** 2 for c in closest_customers) / (
-                max(route_node.distance_to(v) ** 2 for v in closest_customers) * len(closest_customers)
+                (max_dist * len(closest_customers)) if max_dist > 0 else 1
             )
 
         spatial_factor = (
@@ -154,9 +155,9 @@ def run_experiment(weights, seed):
     customer_generator = ClusteredCustomerGenerator(
         clusters=[
             Cluster(Node(x=5, y=5), 1.5, grid_size, initial_customers, initial=True),
-            Cluster(Node(x=5, y=5), 1.5, grid_size, future_customers_cluster_1, t_min=t_max // 4, t_max=3 * t_max // 4),
-            Cluster(Node(x=12, y=12), 1.5, grid_size, future_customers_cluster_2, t_min=0, t_max=t_max // 2),
-            Cluster(Node(x=11, y=6), 1.5, grid_size, future_customers_cluster_3, t_min=0, t_max=t_max),
+            Cluster(Node(x=5, y=5), 1.5, grid_size, future_customers_cluster_1, t_min=0, t_max=t_max // 2),
+            Cluster(Node(x=15, y=15), 1.5, grid_size, future_customers_cluster_2, t_min=0, t_max=t_max // 2),
+            Cluster(Node(x=5, y=15), 1.5, grid_size, future_customers_cluster_3, t_min=0, t_max=t_max),
         ]
     )
 
@@ -229,7 +230,7 @@ if __name__ == "__main__":
         for f in tqdm(as_completed(futures), total=len(futures)):
             results.append(f.result())
 
-    results_dir = "./results/4/"
+    results_dir = "./results/5/"
     os.makedirs(results_dir, exist_ok=True)
     # Write results to csv using pandas
     df = pd.DataFrame(results, columns=["seed", "a", "b", "c", "reward", "greedy_reward"])
