@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import combinations
 
@@ -49,7 +50,7 @@ def greedy_policy(observation: Observation, info: Info, env: TimeBudgetingEnv) -
     raise ValueError("No valid action found.")
 
 
-def modified_objective_function_policy(
+def modified_objective_function_policy(  # noqa: C901
     observation: Observation, info: Info, env: TimeBudgetingEnv, weights: np.ndarray | None = None
 ) -> Action:
     if weights is None:
@@ -65,19 +66,38 @@ def modified_objective_function_policy(
     ) -> np.ndarray:
         true_objective_value = len(action.accepted_customers) / len(info.new_customers) if info.new_customers else 0
         free_time_budget = env.free_time_budget(route=planned_route, point_of_time=point_of_time) / env.t_max
-        spatial_factor = -(
-            sum(
-                sum(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
-                / (
-                    max(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
-                    * len(info.all_arrived_customer_nodes_so_far)
-                )
-                for u in planned_route
+        # spatial_factor = -(
+        #     sum(
+        #         sum(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
+        #         / (
+        #             max(u.distance_to(v) ** 2 for v in info.all_arrived_customer_nodes_so_far)
+        #             * len(info.all_arrived_customer_nodes_so_far)
+        #         )
+        #         for u in planned_route
+        #     )
+        #     / len(planned_route)
+        #     if planned_route
+        #     else 0
+        # )
+
+        closest_customers_per_route_node = defaultdict(list)
+        for v in info.all_arrived_customer_nodes_so_far:
+            closest_route_node = min(planned_route, key=lambda u: u.distance_to(v), default=None)
+            closest_customers_per_route_node[closest_route_node].append(v)
+
+        spatial_factor = 0
+
+        for route_node, closest_customers in closest_customers_per_route_node.items():
+            spatial_factor += sum(route_node.distance_to(c) ** 2 for c in closest_customers) / (
+                max(route_node.distance_to(v) ** 2 for v in closest_customers) * len(closest_customers)
             )
-            / len(planned_route)
-            if planned_route
+
+        spatial_factor = (
+            1 - (spatial_factor / len(closest_customers_per_route_node.keys()))
+            if closest_customers_per_route_node
             else 0
         )
+
         return np.array([true_objective_value, free_time_budget, spatial_factor])
 
     best_action = None
@@ -125,7 +145,7 @@ def run_experiment(weights, seed):
     initial_customers = 2
     future_customers_cluster_1 = 13
     future_customers_cluster_2 = 10
-    future_customers_cluster_3 = 10
+    future_customers_cluster_3 = 5
 
     # future_customers_cluster_1 = 18
     # future_customers_cluster_2 = 10
@@ -209,7 +229,7 @@ if __name__ == "__main__":
         for f in tqdm(as_completed(futures), total=len(futures)):
             results.append(f.result())
 
-    results_dir = "./results/3/"
+    results_dir = "./results/4/"
     os.makedirs(results_dir, exist_ok=True)
     # Write results to csv using pandas
     df = pd.DataFrame(results, columns=["seed", "a", "b", "c", "reward", "greedy_reward"])
