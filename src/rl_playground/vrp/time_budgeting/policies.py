@@ -1,3 +1,5 @@
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import combinations
 
 import numpy as np
@@ -54,6 +56,8 @@ def modified_objective_function_policy(
         weights = np.array([3.0, 1.0, 1.0])
 
     progress = info.current_time / env.t_max
+    progress = min(max(progress, 0.2), 0.8)
+
     adjusted_weights = weights * np.array([progress, 1 - progress, 1 - progress])
 
     def _calculate_objective_value_components(
@@ -121,7 +125,7 @@ def run_experiment(weights, seed):
     initial_customers = 2
     future_customers_cluster_1 = 13
     future_customers_cluster_2 = 10
-    future_customers_cluster_3 = 5
+    future_customers_cluster_3 = 10
 
     # future_customers_cluster_1 = 18
     # future_customers_cluster_2 = 10
@@ -177,51 +181,49 @@ def run_experiment(weights, seed):
     return (total_reward, greedy_total_reward)
 
 
+def worker(params, seed):
+    a, b, c = params["a"], params["b"], params["c"]
+    weights = np.array([a, b, c])
+    reward, greedy_reward = run_experiment(weights, seed=seed)
+    return (seed, a, b, c, reward, greedy_reward)
+
+
 if __name__ == "__main__":
     grid = ParameterGrid({
         "a": [1],
-        "b": [0, 1 / 4, 1 / 2, 1, 2, 4],
-        "c": [0, 1 / 4, 1 / 2, 1, 2, 4],
+        "b": [0, 1 / 4, 1 / 2, 1, 2],
+        "c": [0, 1 / 4, 1 / 2, 1, 2],
     })
     runs_per_param_comb = 10
 
-    seed = 4200
-    results = []
-    for params in tqdm(grid):
-        a, b, c = params["a"], params["b"], params["c"]
-        weights = np.array([a, b, c])
-
+    seed = 0
+    tasks = []
+    for params in grid:
         for _ in range(runs_per_param_comb):
-            reward, greedy_reward = run_experiment(weights, seed=seed)
-            results.append((seed, a, b, c, reward, greedy_reward))
+            tasks.append((params, seed))
             seed += 1
 
+    results = []
+    with ProcessPoolExecutor(max_workers=None) as executor:
+        futures = [executor.submit(worker, p, s) for p, s in tasks]
+        for f in tqdm(as_completed(futures), total=len(futures)):
+            results.append(f.result())
+
+    results_dir = "./results/3/"
+    os.makedirs(results_dir, exist_ok=True)
     # Write results to csv using pandas
     df = pd.DataFrame(results, columns=["seed", "a", "b", "c", "reward", "greedy_reward"])
-    df.to_csv("experiment_results.csv", index=False)
+    df.to_csv(f"{results_dir}experiment_results.csv", index=False)
 
     # For each param comb calc the number of times the reward is larger than the greedy reward
     df["better_than_greedy"] = df["reward"] > df["greedy_reward"]
     better_counts = df.groupby(["a", "b", "c"])["better_than_greedy"].sum().reset_index()
     better_counts.rename(columns={"better_than_greedy": "count"}, inplace=True)
     # Save the better counts to a csv
-    better_counts.to_csv("better_counts.csv", index=False)
+    better_counts.to_csv(f"{results_dir}better_counts.csv", index=False)
 
     # Also add a column for AT LEAST as good:
     df["at_least_as_good"] = df["reward"] >= df["greedy_reward"]
     at_least_counts = df.groupby(["a", "b", "c"])["at_least_as_good"].sum().reset_index()
     at_least_counts.rename(columns={"at_least_as_good": "count"}, inplace=True)
-    at_least_counts.to_csv("at_least_counts.csv", index=False)
-
-    # Plot it using matplotlib's OOP interface
-    # import matplotlib.pyplot as plt
-
-    # fig, ax = plt.subplots()
-    # for key, grp in better_counts.groupby(["a", "b", "c"]):
-    #     ax.bar(key, grp["count"], label=f"a={key[0]}, b={key[1]}, c={key[2]}")
-    # ax.set_xlabel("Parameter Combination")
-    # ax.set_ylabel("Count")
-    # ax.set_title("Number of Times Reward > Greedy Reward")
-    # ax.legend()
-    # plt.savefig("better_counts.png")
-    # plt.show()
+    at_least_counts.to_csv(f"{results_dir}at_least_counts.csv", index=False)
